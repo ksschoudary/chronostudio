@@ -1,0 +1,1511 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Chrono Studio</title>
+
+<meta name="description" content="A private, on-device timeline of your life.">
+<meta name="referrer" content="no-referrer">
+<meta http-equiv="Content-Security-Policy" content="
+  default-src 'none';
+  script-src 'self' 'unsafe-inline';
+  style-src 'self' 'unsafe-inline';
+  img-src 'self' data:;
+  font-src 'self';
+  manifest-src 'self';
+  worker-src 'self';
+  connect-src 'none';
+  base-uri 'none';
+  form-action 'none';
+  frame-ancestors 'none';
+  object-src 'none';
+">
+<meta name="theme-color" content="#0C0E16">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Chrono">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="icon" href="icon-192.png">
+
+<style>
+/* Optional self-hosted font. Drop ComicNeue-Regular.woff2 and ComicNeue-Bold.woff2
+   into a /fonts folder and this activates automatically. If the files are absent
+   the browser silently falls through to the next family in --f. Nothing is ever
+   fetched from a third party, by design. */
+@font-face{
+  font-family:"Comic Neue";font-style:normal;font-weight:400;font-display:swap;
+  src:url("fonts/ComicNeue-Regular.woff2") format("woff2");
+}
+@font-face{
+  font-family:"Comic Neue";font-style:normal;font-weight:700;font-display:swap;
+  src:url("fonts/ComicNeue-Bold.woff2") format("woff2");
+}
+
+/* ============================================================
+   CHRONO STUDIO — ink & handwriting
+   Palette
+     --ink      #0C0E16  page ground
+     --ink-2    #151A29  raised surface
+     --paper    #EDF0F8  primary type
+     --muted    #858CA6  secondary type
+     inks: sky #7FD1FF · mint #6EE7A8 · amber #FFC46B · rose #FF9BB3
+   ============================================================ */
+
+:root{
+  --ink:#0C0E16;
+  --ink-2:#151A29;
+  --ink-3:#1D2436;
+  --paper:#EDF0F8;
+  --muted:#858CA6;
+  --faint:#5B6280;
+  --line:rgba(255,255,255,.075);
+  --line-2:rgba(255,255,255,.14);
+  --accent:#7FD1FF;
+  --accent-2:#B79BFF;
+
+  --r-sm:10px; --r-md:16px; --r-lg:22px; --r-xl:30px;
+  --sat:env(safe-area-inset-top); --sab:env(safe-area-inset-bottom);
+  --nav-h:calc(58px + env(safe-area-inset-bottom));
+
+  --f: "Comic Sans MS","Comic Neue","Chalkboard SE","Chalkboard","Bradley Hand",ui-rounded,system-ui,cursive;
+
+  color-scheme:dark; /* native date picker + scrollbars follow the app, not iOS light mode */
+}
+
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;height:100%}
+body{
+  font-family:var(--f);
+  background:var(--ink);
+  color:var(--paper);
+  font-size:14px;
+  line-height:1.45;
+  -webkit-font-smoothing:antialiased;
+  overscroll-behavior-y:none;
+  text-rendering:optimizeLegibility;
+}
+/* ambient ink wash — the only ornament on the page */
+body::before{
+  content:"";position:fixed;inset:0;pointer-events:none;z-index:0;
+  background:
+    radial-gradient(120% 60% at 12% -8%, rgba(127,209,255,.10), transparent 60%),
+    radial-gradient(100% 55% at 92% 4%, rgba(183,155,255,.09), transparent 62%),
+    radial-gradient(140% 70% at 50% 108%, rgba(255,155,179,.06), transparent 65%);
+}
+button,input,textarea,select{font:inherit;color:inherit}
+button{background:none;border:0;padding:0;cursor:pointer}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:6px}
+
+/* ---------- app frame ---------- */
+#app{position:relative;z-index:1;min-height:100%;display:flex;flex-direction:column}
+
+.topbar{
+  position:sticky;top:0;z-index:30;
+  padding:calc(var(--sat) + 10px) 16px 8px;
+  background:linear-gradient(to bottom,rgba(12,14,22,.94) 62%,rgba(12,14,22,0));
+  backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);
+}
+.brand{display:flex;align-items:baseline;gap:8px}
+.brand h1{
+  margin:0;font-size:20px;font-weight:700;letter-spacing:-.4px;
+  background:linear-gradient(96deg,var(--paper),var(--accent) 55%,var(--accent-2));
+  -webkit-background-clip:text;background-clip:text;color:transparent;
+}
+.brand .sub{font-size:10.5px;color:var(--faint);letter-spacing:.3px}
+
+/* segmented lens switcher */
+.lens{
+  display:flex;gap:3px;margin-top:11px;padding:3px;
+  background:var(--ink-2);border:1px solid var(--line);border-radius:14px;
+}
+.lens button{
+  flex:1;padding:7px 4px;border-radius:11px;font-size:11.5px;font-weight:700;
+  color:var(--muted);transition:color .2s, background .25s, transform .25s;
+}
+.lens button[aria-selected="true"]{
+  color:var(--ink);background:linear-gradient(140deg,var(--accent),var(--accent-2));
+  box-shadow:0 4px 14px rgba(127,209,255,.22);
+}
+.lens button:active{transform:scale(.96)}
+
+/* category chips */
+.chips{display:flex;gap:6px;overflow-x:auto;padding:10px 16px 2px;scrollbar-width:none;-webkit-overflow-scrolling:touch}
+.chips::-webkit-scrollbar{display:none}
+.chip{
+  flex:0 0 auto;display:flex;align-items:center;gap:5px;
+  padding:5px 11px;border-radius:999px;font-size:11.5px;font-weight:700;
+  background:var(--ink-2);border:1px solid var(--line);color:var(--muted);
+  transition:transform .18s,border-color .2s,color .2s;
+}
+.chip:active{transform:scale(.94)}
+.chip .dot{width:7px;height:7px;border-radius:50%;background:currentColor}
+.chip[aria-pressed="true"]{color:var(--paper);border-color:var(--line-2);background:var(--ink-3)}
+
+main{flex:1;padding:6px 16px calc(var(--nav-h) + 26px)}
+
+/* ---------- shared bits ---------- */
+.sec-label{
+  font-size:10px;font-weight:700;letter-spacing:1.4px;text-transform:uppercase;
+  color:var(--faint);margin:20px 0 9px;
+}
+.empty{
+  margin-top:56px;text-align:center;padding:0 24px;
+}
+.empty .mark{font-size:34px;opacity:.9}
+.empty h3{margin:12px 0 5px;font-size:16px;font-weight:700}
+.empty p{margin:0;font-size:12.5px;color:var(--muted);line-height:1.6}
+.empty button{
+  margin-top:16px;padding:9px 18px;border-radius:999px;font-size:12.5px;font-weight:700;
+  color:var(--ink);background:linear-gradient(140deg,var(--accent),var(--accent-2));
+}
+
+/* event card — the unit of the whole app */
+.ev{
+  width:100%;text-align:left;display:block;position:relative;
+  padding:10px 12px 10px 14px;border-radius:var(--r-md);
+  background:var(--ink-2);border:1px solid var(--line);
+  overflow:hidden;transition:transform .16s,border-color .2s;
+}
+.ev:active{transform:scale(.985);border-color:var(--line-2)}
+.ev::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--c)}
+.ev .row{display:flex;align-items:center;gap:6px}
+.ev .t{font-size:13.5px;font-weight:700;letter-spacing:-.15px;flex:1;min-width:0;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ev .star{font-size:10px;flex:0 0 auto}
+.ev .meta{display:flex;align-items:center;gap:6px;margin-top:3px;font-size:10.5px;color:var(--faint)}
+.ev .tag{color:var(--c);font-weight:700}
+.ev .d{font-size:11.5px;color:var(--muted);margin-top:5px;line-height:1.5;
+  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.stack{display:flex;flex-direction:column;gap:7px}
+
+/* ---------- calendar lens ---------- */
+.cal-head{display:flex;align-items:center;gap:8px;margin:14px 0 10px}
+.cal-head .m{flex:1;font-size:16px;font-weight:700;letter-spacing:-.3px}
+.cal-head .m span{color:var(--faint);font-weight:400}
+.nav-btn{
+  width:30px;height:30px;border-radius:10px;background:var(--ink-2);
+  border:1px solid var(--line);display:grid;place-items:center;font-size:13px;color:var(--muted);
+}
+.nav-btn:active{transform:scale(.9)}
+.today-btn{padding:6px 11px;border-radius:10px;background:var(--ink-2);border:1px solid var(--line);
+  font-size:10.5px;font-weight:700;color:var(--muted)}
+
+.dow{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;margin-bottom:4px}
+.dow span{text-align:center;font-size:9.5px;font-weight:700;color:var(--faint);letter-spacing:.5px}
+.grid{display:grid;grid-template-columns:repeat(7,1fr);gap:4px}
+.cell{
+  position:relative;min-height:63px;padding:4px 3px 3px;border-radius:9px;
+  background:var(--ink-2);border:1px solid transparent;text-align:left;
+  display:flex;flex-direction:column;gap:2px;overflow:hidden;
+  transition:border-color .18s,background .18s;
+}
+.cell.out{background:rgba(255,255,255,.018)}
+.cell.out .n{color:#3A4056}
+.cell.sel{border-color:var(--line-2);background:var(--ink-3)}
+.cell .n{font-size:10px;font-weight:700;color:var(--muted);padding-left:2px}
+.cell.today .n{
+  color:var(--ink);background:var(--accent);border-radius:5px;
+  width:15px;height:15px;display:grid;place-items:center;padding:0;font-size:9px;
+}
+.pill{
+  font-size:8.5px;line-height:1.3;font-weight:700;padding:1.5px 3px;border-radius:3px;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+  background:color-mix(in srgb,var(--c) 22%,transparent);color:var(--c);
+}
+.more{font-size:8px;color:var(--faint);padding-left:3px;font-weight:700}
+
+.day-group{margin-top:16px}
+.day-group h4{
+  margin:0 0 7px;font-size:11px;font-weight:700;color:var(--muted);
+  display:flex;align-items:center;gap:7px;
+}
+.day-group h4::after{content:"";flex:1;height:1px;background:var(--line)}
+.day-group.flash > h4{color:var(--accent)}
+
+/* ---------- journey tree lens ---------- */
+.yr{margin-top:22px}
+.yr-head{display:flex;align-items:center;gap:10px;width:100%;text-align:left}
+.yr-head .y{font-size:26px;font-weight:700;letter-spacing:-1px;
+  background:linear-gradient(120deg,var(--paper),var(--faint));
+  -webkit-background-clip:text;background-clip:text;color:transparent}
+.yr-head .c{font-size:10px;color:var(--faint);font-weight:700}
+.yr-head .caret{margin-left:auto;font-size:11px;color:var(--faint);transition:transform .25s}
+.yr[data-open="false"] .caret{transform:rotate(-90deg)}
+.yr[data-open="false"] .yr-body{display:none}
+
+.mo{position:relative;padding-left:20px;margin-top:12px}
+.mo::before{content:"";position:absolute;left:5px;top:6px;bottom:2px;width:1.5px;
+  background:linear-gradient(to bottom,var(--line-2),transparent)}
+.mo-label{position:relative;font-size:11px;font-weight:700;color:var(--muted);margin-bottom:8px}
+.mo-label::before{
+  content:"";position:absolute;left:-18px;top:5px;width:9px;height:9px;border-radius:50%;
+  background:var(--ink);border:2px solid var(--line-2);
+}
+.leaf{position:relative}
+.leaf::before{
+  content:"";position:absolute;left:-15px;top:20px;width:11px;height:1.5px;background:var(--line);
+}
+
+/* ---------- milestone map lens ---------- */
+.map-toggle{display:flex;gap:6px;margin:14px 0 4px}
+.map-toggle button{
+  padding:5px 11px;border-radius:999px;font-size:11px;font-weight:700;
+  background:var(--ink-2);border:1px solid var(--line);color:var(--muted);
+}
+.map-toggle button[aria-pressed="true"]{color:var(--paper);border-color:var(--line-2);background:var(--ink-3)}
+
+.trail{position:relative;padding-top:6px}
+.checkpoint{
+  display:flex;align-items:center;gap:9px;margin:14px 0 4px;
+}
+.checkpoint .badge{
+  font-size:11px;font-weight:700;padding:4px 12px;border-radius:999px;
+  background:var(--ink-3);border:1px dashed var(--line-2);color:var(--paper);
+}
+.checkpoint .rule{flex:1;height:1px;background:repeating-linear-gradient(90deg,var(--line-2) 0 3px,transparent 3px 7px)}
+
+.link{display:block;height:34px;width:24px}
+.link path{fill:none;stroke:var(--line-2);stroke-width:1.5;stroke-dasharray:2 4.5;stroke-linecap:round}
+
+.stop{position:relative;padding-left:30px}
+.stop .pin{
+  position:absolute;left:2px;top:14px;width:17px;height:17px;border-radius:50%;
+  background:var(--ink);border:2px solid var(--c);display:grid;place-items:center;
+}
+.stop .pin i{width:5px;height:5px;border-radius:50%;background:var(--c);display:block}
+.stop .pin.big{box-shadow:0 0 0 4px color-mix(in srgb,var(--c) 16%,transparent)}
+
+/* ---------- bottom nav ---------- */
+.nav{
+  position:fixed;left:0;right:0;bottom:0;z-index:40;
+  height:var(--nav-h);padding-bottom:var(--sab);
+  display:grid;grid-template-columns:repeat(5,1fr);align-items:center;
+  background:rgba(16,19,30,.82);backdrop-filter:blur(24px) saturate(160%);
+  -webkit-backdrop-filter:blur(24px) saturate(160%);
+  border-top:1px solid var(--line);
+}
+.nav button{display:flex;flex-direction:column;align-items:center;gap:3px;height:100%;justify-content:center;
+  font-size:8.5px;font-weight:700;color:var(--faint);transition:color .2s;letter-spacing:-.1px}
+.nav button svg{width:19px;height:19px;stroke:currentColor;fill:none;stroke-width:1.7;
+  stroke-linecap:round;stroke-linejoin:round}
+.nav button[aria-current="page"]{color:var(--paper)}
+.nav button .soon{position:absolute;top:8px;margin-left:19px;width:5px;height:5px;border-radius:50%;
+  background:var(--accent-2);opacity:.7}
+.nav button{position:relative}
+
+/* floating record button — only on Timeline */
+.fab-add{
+  position:fixed;right:16px;bottom:calc(var(--nav-h) + 14px);z-index:41;
+  width:52px;height:52px;border-radius:19px;display:grid;place-items:center;
+  background:linear-gradient(140deg,var(--accent),var(--accent-2));color:var(--ink);
+  box-shadow:0 8px 24px rgba(127,209,255,.3),0 2px 6px rgba(0,0,0,.4);
+  transition:transform .2s,opacity .2s;
+}
+.fab-add svg{width:23px;height:23px;stroke:currentColor;fill:none;stroke-width:2.6;stroke-linecap:round}
+.fab-add:active{transform:scale(.9) rotate(90deg)}
+.fab-add[hidden]{display:none}
+
+/* work-in-progress screens */
+.wip{margin-top:26px;text-align:center;padding:0 6px}
+.wip .glyph{width:56px;height:56px;margin:0 auto;border-radius:20px;display:grid;place-items:center;
+  font-size:24px;background:var(--ink-2);border:1px solid var(--line-2);color:var(--accent)}
+.wip h3{margin:14px 0 3px;font-size:18px;font-weight:700;letter-spacing:-.3px}
+.wip .tagline{margin:0;font-size:12.5px;color:var(--muted);line-height:1.6}
+.wip .flag{display:inline-block;margin-top:12px;padding:5px 13px;border-radius:999px;
+  font-size:10px;font-weight:700;letter-spacing:1.2px;text-transform:uppercase;
+  color:var(--accent-2);background:rgba(183,155,255,.12);border:1px dashed rgba(183,155,255,.35)}
+.wip ul{list-style:none;margin:22px 0 0;padding:0;text-align:left;display:flex;flex-direction:column;gap:7px}
+.wip li{display:flex;gap:10px;align-items:flex-start;padding:11px 13px;border-radius:var(--r-md);
+  background:var(--ink-2);border:1px solid var(--line);font-size:12px;color:var(--muted);line-height:1.5}
+.wip li b{color:var(--faint);font-size:10px;flex:0 0 auto;padding-top:1px}
+
+/* ---------- sheets ---------- */
+.scrim{position:fixed;inset:0;z-index:60;background:rgba(6,7,12,.6);
+  backdrop-filter:blur(3px);-webkit-backdrop-filter:blur(3px);
+  opacity:0;pointer-events:none;transition:opacity .28s}
+.scrim.on{opacity:1;pointer-events:auto}
+.sheet{
+  position:fixed;left:0;right:0;bottom:0;z-index:70;
+  max-height:92dvh;overflow-y:auto;-webkit-overflow-scrolling:touch;
+  background:var(--ink-2);border-top:1px solid var(--line-2);
+  border-radius:var(--r-xl) var(--r-xl) 0 0;
+  padding:8px 18px calc(24px + var(--sab));
+  transform:translateY(101%);transition:transform .34s cubic-bezier(.32,.72,0,1);
+}
+.sheet.on{transform:translateY(0)}
+.grab{width:34px;height:4px;border-radius:99px;background:var(--line-2);margin:0 auto 12px}
+.sheet h2{margin:0 0 2px;font-size:17px;font-weight:700;letter-spacing:-.3px}
+.sheet .hint{margin:0 0 16px;font-size:11px;color:var(--faint)}
+
+.field{margin-bottom:13px}
+.field label{display:block;font-size:10px;font-weight:700;letter-spacing:1px;
+  text-transform:uppercase;color:var(--faint);margin-bottom:6px}
+.field input[type=text],.field input[type=date],.field textarea{
+  width:100%;padding:11px 12px;border-radius:var(--r-md);
+  background:var(--ink);border:1px solid var(--line);color:var(--paper);
+  font-size:16px; /* 16px stops iOS zoom-on-focus */
+  transition:border-color .2s;
+}
+.field textarea{resize:none;line-height:1.5}
+.field input:focus,.field textarea:focus{outline:none;border-color:var(--accent)}
+.field input::placeholder,.field textarea::placeholder{color:#4A5068}
+
+.cat-pick{display:flex;flex-wrap:wrap;gap:6px}
+.cat-pick button{
+  display:flex;align-items:center;gap:6px;padding:7px 12px;border-radius:999px;
+  font-size:12px;font-weight:700;background:var(--ink);border:1px solid var(--line);color:var(--muted);
+}
+.cat-pick button .dot{width:8px;height:8px;border-radius:50%;background:var(--c)}
+.cat-pick button[aria-pressed="true"]{color:var(--paper);border-color:var(--c);
+  background:color-mix(in srgb,var(--c) 13%,transparent)}
+.cat-pick .new{border-style:dashed}
+
+.newcat{display:none;gap:7px;margin-top:9px;align-items:center}
+.newcat.on{display:flex}
+.newcat input{flex:1;padding:9px 11px;border-radius:12px;background:var(--ink);
+  border:1px solid var(--line);font-size:16px}
+.swatches{display:flex;gap:5px;margin-top:8px;flex-wrap:wrap}
+.swatches button{width:22px;height:22px;border-radius:50%;border:2px solid transparent}
+.swatches button[aria-pressed="true"]{border-color:var(--paper)}
+
+.toggle-row{display:flex;align-items:center;justify-content:space-between;gap:12px;
+  padding:11px 13px;border-radius:var(--r-md);background:var(--ink);border:1px solid var(--line)}
+.toggle-row .tt{font-size:12.5px;font-weight:700}
+.toggle-row .ts{font-size:10.5px;color:var(--faint);margin-top:1px}
+.switch{width:44px;height:26px;border-radius:99px;background:var(--ink-3);position:relative;
+  flex:0 0 auto;transition:background .25s;border:1px solid var(--line)}
+.switch i{position:absolute;top:2px;left:2px;width:20px;height:20px;border-radius:50%;
+  background:var(--muted);transition:transform .25s,background .25s}
+.switch[aria-pressed="true"]{background:linear-gradient(140deg,var(--accent),var(--accent-2));border-color:transparent}
+.switch[aria-pressed="true"] i{transform:translateX(18px);background:var(--ink)}
+
+.btn-row{display:flex;gap:8px;margin-top:18px}
+.btn{flex:1;padding:13px;border-radius:var(--r-md);font-size:13.5px;font-weight:700;text-align:center}
+.btn-primary{color:var(--ink);background:linear-gradient(140deg,var(--accent),var(--accent-2))}
+.btn-ghost{background:var(--ink);border:1px solid var(--line);color:var(--muted)}
+.btn-danger{background:rgba(255,120,140,.1);border:1px solid rgba(255,120,140,.3);color:#FF9BB3}
+.btn:active{transform:scale(.98)}
+
+/* detail sheet */
+.det-cat{display:inline-flex;align-items:center;gap:6px;padding:4px 11px;border-radius:999px;
+  font-size:11px;font-weight:700;background:color-mix(in srgb,var(--c) 15%,transparent);color:var(--c)}
+.det-date{font-size:11.5px;color:var(--faint);margin-top:9px}
+.det h2{margin:8px 0 0;font-size:20px;line-height:1.3}
+.det .block{margin-top:16px}
+.det .block h5{margin:0 0 5px;font-size:9.5px;letter-spacing:1.2px;text-transform:uppercase;color:var(--faint)}
+.det .block p{margin:0;font-size:13px;color:var(--paper);line-height:1.6;white-space:pre-wrap;opacity:.9}
+
+/* settings rows */
+.srow{display:flex;align-items:center;gap:12px;width:100%;text-align:left;
+  padding:13px;border-radius:var(--r-md);background:var(--ink-2);border:1px solid var(--line);margin-bottom:7px}
+.srow .ic{width:30px;height:30px;border-radius:9px;background:var(--ink-3);display:grid;place-items:center;font-size:14px;flex:0 0 auto}
+.srow .tt{font-size:12.5px;font-weight:700}
+.srow .ts{font-size:10.5px;color:var(--faint);margin-top:1px}
+.stat-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:7px;margin-bottom:14px}
+.stat{padding:12px 10px;border-radius:var(--r-md);background:var(--ink-2);border:1px solid var(--line);text-align:center}
+.stat b{display:block;font-size:20px;font-weight:700;letter-spacing:-.5px}
+.stat span{font-size:9.5px;color:var(--faint);font-weight:700;letter-spacing:.6px;text-transform:uppercase}
+
+.toast{
+  position:fixed;left:50%;bottom:calc(var(--nav-h) + 14px);transform:translate(-50%,14px);
+  z-index:90;padding:9px 16px;border-radius:999px;font-size:12px;font-weight:700;
+  background:var(--ink-3);border:1px solid var(--line-2);color:var(--paper);
+  opacity:0;pointer-events:none;transition:opacity .25s,transform .25s;white-space:nowrap;
+  max-width:88vw;overflow:hidden;text-overflow:ellipsis;
+}
+.toast.on{opacity:1;transform:translate(-50%,0)}
+
+/* ---------- search ---------- */
+.icon-btn{
+  width:30px;height:30px;border-radius:10px;background:var(--ink-2);border:1px solid var(--line);
+  display:grid;place-items:center;color:var(--muted);margin-left:auto;flex:0 0 auto;
+  transition:background .2s,color .2s;
+}
+.icon-btn svg{width:15px;height:15px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round}
+.icon-btn[aria-pressed="true"]{color:var(--ink);border-color:transparent;
+  background:linear-gradient(140deg,var(--accent),var(--accent-2))}
+.search-row{display:none;margin-top:10px;position:relative}
+.search-row.on{display:block}
+.search-row input{
+  width:100%;padding:9px 34px 9px 12px;border-radius:13px;background:var(--ink-2);
+  border:1px solid var(--line);color:var(--paper);font-size:16px;
+}
+.search-row input:focus{outline:none;border-color:var(--accent)}
+.search-row input::placeholder{color:#4A5068}
+.search-row .x{position:absolute;right:5px;top:50%;transform:translateY(-50%);
+  width:26px;height:26px;border-radius:8px;color:var(--faint);display:grid;place-items:center;font-size:14px}
+mark{background:color-mix(in srgb,var(--accent) 28%,transparent);color:var(--paper);border-radius:3px;padding:0 1px}
+
+/* ---------- on this day ---------- */
+.otd{
+  padding:12px 13px;border-radius:var(--r-lg);margin:14px 0 2px;border:1px solid var(--line-2);
+  background:linear-gradient(150deg,rgba(127,209,255,.10),rgba(183,155,255,.06));
+}
+.otd h4{margin:0;font-size:10px;font-weight:700;letter-spacing:1.3px;text-transform:uppercase;color:var(--accent)}
+.otd .sub{font-size:10.5px;color:var(--muted);margin:3px 0 10px}
+
+/* ---------- insights ---------- */
+.bars{display:flex;align-items:flex-end;gap:4px;height:76px;padding:10px 11px 8px;
+  background:var(--ink-2);border:1px solid var(--line);border-radius:var(--r-md)}
+.bars .b{flex:1;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;gap:4px;height:100%}
+.bars .b i{width:100%;border-radius:3px 3px 1px 1px;min-height:2px;display:block;opacity:.8;
+  background:linear-gradient(to top,var(--accent),var(--accent-2))}
+.bars .b span{font-size:7.5px;color:var(--faint);font-weight:700;letter-spacing:.2px}
+.bars .b.now i{opacity:1;box-shadow:0 0 12px rgba(127,209,255,.4)}
+.split{display:flex;height:10px;border-radius:99px;overflow:hidden;background:var(--ink-2);border:1px solid var(--line)}
+.split i{display:block;height:100%}
+.legend{display:flex;flex-wrap:wrap;gap:9px;margin-top:9px}
+.legend span{display:flex;align-items:center;gap:5px;font-size:10px;color:var(--muted);font-weight:700}
+.legend b{width:7px;height:7px;border-radius:50%;display:block}
+.note{font-size:10.5px;color:var(--faint);margin:8px 0 0;line-height:1.5}
+
+/* entrance motion */
+@keyframes rise{from{opacity:0;transform:translateY(9px)}to{opacity:1;transform:none}}
+.anim > *{animation:rise .38s cubic-bezier(.22,.9,.3,1) backwards}
+.anim > *:nth-child(1){animation-delay:.01s}
+.anim > *:nth-child(2){animation-delay:.04s}
+.anim > *:nth-child(3){animation-delay:.07s}
+.anim > *:nth-child(4){animation-delay:.1s}
+.anim > *:nth-child(5){animation-delay:.13s}
+.anim > *:nth-child(n+6){animation-delay:.16s}
+
+@media (prefers-reduced-motion:reduce){
+  *{animation:none!important;transition-duration:.01ms!important}
+}
+</style>
+</head>
+<body>
+
+<div id="app">
+  <header class="topbar">
+    <div class="brand">
+      <h1>Chrono Studio</h1>
+      <span class="sub" id="brandSub">on this device only</span>
+      <button class="icon-btn" id="searchBtn" aria-pressed="false" aria-label="Search events">
+        <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M16.5 16.5 21 21"/></svg>
+      </button>
+    </div>
+    <div class="search-row" id="searchRow">
+      <input id="q" type="text" aria-label="Search your events" placeholder="Search titles, notes, people, places…" autocomplete="off" autocapitalize="off" spellcheck="false">
+      <button class="x" id="qClear" aria-label="Clear search">✕</button>
+    </div>
+    <div class="lens" id="lens" role="tablist">
+      <button role="tab" data-lens="calendar" aria-selected="true">Calendar</button>
+      <button role="tab" data-lens="tree" aria-selected="false">Journey tree</button>
+      <button role="tab" data-lens="map" aria-selected="false">Milestone map</button>
+    </div>
+  </header>
+
+  <div class="chips" id="chips"></div>
+  <main id="view"></main>
+
+  <nav class="nav">
+    <button data-tab="timeline" aria-current="page">
+      <svg viewBox="0 0 24 24"><path d="M12 8v4l2.5 2.5"/><circle cx="12" cy="12" r="9"/></svg>
+      Timeline
+    </button>
+    <button data-tab="diary">
+      <svg viewBox="0 0 24 24"><path d="M6 4h11a2 2 0 0 1 2 2v14H8a2 2 0 0 1-2-2z"/><path d="M6 16h13"/><path d="M10 8h5"/></svg>
+      <span class="soon"></span>Diary
+    </button>
+    <button data-tab="manifest">
+      <svg viewBox="0 0 24 24"><path d="M12 3.5 14.2 9l5.8.3-4.5 3.7 1.6 5.6L12 15.6 6.9 18.6l1.6-5.6L4 9.3 9.8 9z"/></svg>
+      <span class="soon"></span>Manifest
+    </button>
+    <button data-tab="habit">
+      <svg viewBox="0 0 24 24"><rect x="4" y="5" width="16" height="15" rx="2.5"/><path d="M4 10h16M8 3v3M16 3v3"/><path d="M9.5 15l1.8 1.8 3.4-3.6"/></svg>
+      <span class="soon"></span>Habits
+    </button>
+    <button data-tab="library">
+      <svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h10"/><circle cx="17" cy="18" r="2.4"/></svg>
+      Library
+    </button>
+  </nav>
+
+  <button class="fab-add" id="fabAdd" aria-label="Record an event">
+    <svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
+  </button>
+</div>
+
+<div class="scrim" id="scrim"></div>
+<section class="sheet" id="sheet" role="dialog" aria-modal="true"></section>
+<div class="toast" id="toast"></div>
+
+<script>
+/* ============================================================
+   Clickjacking guard. `frame-ancestors` is ignored in a meta CSP,
+   so if another origin embeds this page we cover it with a visible
+   notice — an invisible overlay is the whole point of a clickjack.
+   ============================================================ */
+(function(){
+  let framedByOther = false;
+  try { framedByOther = window.top !== window.self && !window.top.location.origin; }
+  catch(e){ framedByOther = true; }              // cross-origin access throws
+  if(!framedByOther) return;
+  document.addEventListener('DOMContentLoaded', () => {
+    const s = document.createElement('div');
+    s.setAttribute('style','position:fixed;inset:0;z-index:9999;background:#0C0E16;color:#EDF0F8;'
+      + 'display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;'
+      + 'padding:28px;text-align:center;font:400 14px/1.6 system-ui,sans-serif');
+    const h = document.createElement('div');
+    h.setAttribute('style','font-size:16px;font-weight:700');
+    h.textContent = 'Chrono Studio is embedded in another site';
+    const p = document.createElement('div');
+    p.setAttribute('style','color:#858CA6;max-width:340px;font-size:12.5px');
+    p.textContent = 'Your journal is not shown inside another page. Open Chrono at its own address instead.';
+    const b = document.createElement('button');
+    b.setAttribute('style','padding:10px 18px;border-radius:999px;border:1px solid #333a52;'
+      + 'background:#151A29;color:#858CA6;font:inherit;font-size:12px');
+    b.textContent = 'I embedded this myself — continue';
+    b.addEventListener('click', () => s.remove());
+    s.append(h, p, b);
+    document.body.appendChild(s);
+  });
+})();
+</script>
+
+<script>
+/* ============================================================
+   Storage — device-only, with an in-memory fallback so the app
+   still runs in sandboxed previews where localStorage is blocked.
+   ============================================================ */
+const Store = (() => {
+  let live = true, mem = {};
+  try { localStorage.setItem('__cs__','1'); localStorage.removeItem('__cs__'); }
+  catch(e){ live = false; }
+  return {
+    live,
+    get(k){ try{ return live ? localStorage.getItem(k) : (mem[k] ?? null); }catch(e){ return mem[k] ?? null; } },
+    set(k,v){
+      try{
+        if(live){ localStorage.setItem(k,v); } else { mem[k]=v; }
+        return true;
+      }catch(e){ mem[k]=v; return false; } // quota exceeded / storage disabled mid-session
+    },
+    del(k){ try{ live ? localStorage.removeItem(k) : delete mem[k]; }catch(e){ delete mem[k]; } }
+  };
+})();
+
+const K_EV = 'chrono.events.v1', K_CAT = 'chrono.categories.v1';
+
+const DEFAULT_CATS = [
+  { id:'life',   name:'Life',   color:'#7FD1FF' },
+  { id:'health', name:'Health', color:'#6EE7A8' },
+  { id:'career', name:'Career', color:'#FFC46B' },
+  { id:'love',   name:'Love',   color:'#FF9BB3' }
+];
+const SWATCHES = ['#7FD1FF','#6EE7A8','#FFC46B','#FF9BB3','#B79BFF','#8FE3D8','#FF8F6B','#D7E06B'];
+
+const S = {
+  events: [],
+  cats: [],
+  lens: 'calendar',
+  tab: 'timeline',
+  cat: 'all',
+  cursor: new Date(),
+  selDay: null,
+  mapMode: 'milestones',
+  openYears: {},
+  query: '',
+  searchOpen: false,
+  draft: null
+};
+
+/* ---------- helpers ---------- */
+const $  = s => document.querySelector(s);
+const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2,7);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const MON  = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+const MON3 = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+const DOW  = ['S','M','T','W','T','F','S'];
+
+const iso = d => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+// Built at midday, not midnight: in zones where DST shifts at 00:00 a
+// midnight date can roll to the previous day and misplace an event.
+const parse = s => { const [y,m,d] = String(s).split('-').map(Number); return new Date(y, m-1, d, 12); };
+const todayISO = () => iso(new Date());
+const catOf = id => S.cats.find(c => c.id === id) || { id:'?', name:'Uncategorised', color:'#858CA6' };
+const longDate = s => { const d = parse(s); return `${d.getDate()} ${MON[d.getMonth()]} ${d.getFullYear()}`; };
+const dayLabel = s => { const d = parse(s); return `${['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'][d.getDay()]} ${d.getDate()}`; };
+
+/* ============================================================
+   Validation — every record is normalised before it is trusted,
+   whether it came from an imported file or from localStorage
+   (a tampered store is treated exactly like a hostile file).
+   ============================================================ */
+const RX_ID    = /^[A-Za-z0-9_-]{1,48}$/;
+const RX_DATE  = /^\d{4}-\d{2}-\d{2}$/;
+const RX_COLOR = /^#[0-9A-Fa-f]{6}$/;
+const CAP = { title:120, about:80, desc:8000, name:24 };
+const MAX_EVENTS = 20000;
+const MAX_CATS = 24;
+const MAX_IMPORT_BYTES = 8 * 1024 * 1024;
+
+/* Only ever emit a colour we have proven is a plain hex literal.
+   Without this, an imported category colour reaches a style attribute. */
+const col = c => RX_COLOR.test(c) ? c : '#858CA6';
+
+function validDate(s){
+  if(typeof s !== 'string' || !RX_DATE.test(s)) return false;
+  const d = parse(s);
+  return !isNaN(d.getTime()) && iso(d) === s;   // also rejects 2026-02-31
+}
+
+/* Strip control characters, cap length. Nothing here trusts the input's type. */
+function cleanText(v, max){
+  return String(v == null ? '' : v)
+    .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F\u202A-\u202E\u2066-\u2069]/g, '')
+    .slice(0, max).trim();
+}
+
+function cleanCat(c){
+  if(!c || typeof c !== 'object' || Array.isArray(c)) return null;
+  const name = cleanText(c.name, CAP.name);
+  if(!RX_ID.test(c.id) || !name) return null;
+  return { id: c.id, name, color: RX_COLOR.test(c.color) ? c.color : SWATCHES[4] };
+}
+
+function cleanEvent(e, allowedIds, fallbackCat){
+  if(!e || typeof e !== 'object' || Array.isArray(e)) return null;
+  const title = cleanText(e.title, CAP.title);
+  if(!validDate(e.date) || !title) return null;
+  const created = Number.isFinite(+e.created) ? +e.created : Date.now();
+  return {
+    id: RX_ID.test(e.id) ? e.id : uid(),
+    date: e.date,
+    title,
+    about: cleanText(e.about, CAP.about),
+    description: cleanText(e.description, CAP.desc),
+    catId: allowedIds.has(e.catId) ? e.catId : fallbackCat,
+    milestone: e.milestone === true,
+    created,
+    updated: Date.now()
+  };
+}
+
+function normaliseAll(rawCats, rawEvents){
+  let cats = (Array.isArray(rawCats) ? rawCats : []).map(cleanCat).filter(Boolean);
+  // guarantee the four built-ins always exist and are never shadowed
+  DEFAULT_CATS.forEach(d => { if(!cats.some(c => c.id === d.id)) cats.push({ ...d }); });
+  const seen = new Set();
+  cats = cats.filter(c => seen.has(c.id) ? false : seen.add(c.id));
+  const events = (Array.isArray(rawEvents) ? rawEvents : [])
+    .slice(0, MAX_EVENTS)
+    .map(e => cleanEvent(e, seen, cats[0].id))
+    .filter(Boolean);
+  return { cats, events };
+}
+
+function load(){
+  let rawE = [], rawC = null;
+  try { rawE = JSON.parse(Store.get(K_EV) || '[]'); } catch(e){ rawE = []; }
+  try { rawC = JSON.parse(Store.get(K_CAT) || 'null'); } catch(e){ rawC = null; }
+  const out = normaliseAll(rawC, rawE);
+  S.cats = out.cats;
+  S.events = out.events;
+}
+
+function saveEvents(){
+  if(!Store.set(K_EV, JSON.stringify(S.events)))
+    toast('Could not save — storage is full. Export a backup.');
+}
+function saveCats(){ Store.set(K_CAT, JSON.stringify(S.cats)); }
+
+const filtered = () => S.events
+  .filter(e => S.cat === 'all' || e.catId === S.cat)
+  .sort((a,b) => b.date.localeCompare(a.date) || (b.created||0) - (a.created||0));
+
+let toastT;
+function toast(msg){
+  const t = $('#toast'); t.textContent = msg; t.classList.add('on');
+  clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove('on'), 2100);
+}
+function haptic(){ if(navigator.vibrate) try{ navigator.vibrate(8); }catch(e){} }
+
+/* ============================================================
+   Event card
+   ============================================================ */
+/* Highlight by scanning the RAW string and escaping each piece separately.
+   Matching against already-escaped text would let a query like "amp" or "39"
+   split an HTML entity apart. No regex here, so no ReDoS surface either. */
+function hl(text, q){
+  const s = String(text == null ? '' : text);
+  const needle = String(q == null ? '' : q).toLowerCase();
+  if(!needle) return esc(s);
+  const hay = s.toLowerCase();
+  let out = '', i = 0;
+  for(;;){
+    const j = hay.indexOf(needle, i);
+    if(j < 0){ out += esc(s.slice(i)); break; }
+    out += esc(s.slice(i, j)) + '<mark>' + esc(s.slice(j, j + needle.length)) + '</mark>';
+    i = j + needle.length;
+  }
+  return out;
+}
+
+function evCard(e, q){
+  const c = catOf(e.catId);
+  return `<button class="ev" style="--c:${col(c.color)}" data-ev="${esc(e.id)}">
+    <div class="row">
+      <span class="t">${hl(e.title, q)}</span>
+      ${e.milestone ? '<span class="star">★</span>' : ''}
+    </div>
+    <div class="meta"><span class="tag">${esc(c.name)}</span><span>·</span><span>${longDate(e.date)}</span>
+      ${e.about ? `<span>·</span><span>${hl(e.about, q)}</span>` : ''}</div>
+    ${e.description ? `<div class="d">${hl(e.description, q)}</div>` : ''}
+  </button>`;
+}
+
+/* ============================================================
+   Search — spans every lens, respects the category filter
+   ============================================================ */
+function matchEv(e, q){
+  return (e.title + ' ' + e.description + ' ' + e.about + ' ' + catOf(e.catId).name)
+    .toLowerCase().includes(q);
+}
+
+function renderSearch(){
+  const q = S.query.trim().toLowerCase();
+  const hits = S.events
+    .filter(e => (S.cat === 'all' || e.catId === S.cat) && matchEv(e, q))
+    .sort((a,b) => b.date.localeCompare(a.date));
+
+  if(!hits.length) return `<div class="empty"><div class="mark">◌</div>
+    <h3>Nothing matches “${esc(S.query)}”</h3>
+    <p>Try a shorter word${S.cat !== 'all' ? ', or switch the category filter back to All' : ''}.</p></div>`;
+
+  const years = {};
+  hits.forEach(e => (years[e.date.slice(0,4)] = years[e.date.slice(0,4)] || []).push(e));
+
+  return `<div class="sec-label">${hits.length} match${hits.length===1?'':'es'} for “${esc(S.query)}”</div>` +
+    Object.keys(years).sort((a,b) => b - a).map(y =>
+      `<div class="day-group"><h4>${esc(y)}</h4>
+        <div class="stack">${years[y].map(e => evCard(e, S.query.trim())).join('')}</div></div>`
+    ).join('');
+}
+
+/* ============================================================
+   On this day — same calendar day, earlier years
+   ============================================================ */
+function onThisDay(){
+  const now = new Date();
+  const md = `-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`;
+  return S.events
+    .filter(e => (S.cat === 'all' || e.catId === S.cat))
+    .filter(e => e.date.endsWith(md) && +e.date.slice(0,4) < now.getFullYear())
+    .sort((a,b) => b.date.localeCompare(a.date));
+}
+
+function otdBlock(){
+  const hits = onThisDay();
+  if(!hits.length) return '';
+  const now = new Date().getFullYear();
+  const gaps = hits.map(e => now - +e.date.slice(0,4));
+  const span = gaps.length === 1
+    ? `${gaps[0]} year${gaps[0]===1?'':'s'} ago today`
+    : `${gaps[gaps.length-1]}–${gaps[0]} years ago today`;
+  return `<div class="otd"><h4>On this day</h4><div class="sub">${span}</div>
+    <div class="stack">${hits.map(e => evCard(e)).join('')}</div></div>`;
+}
+
+/* ============================================================
+   Lens 1 — Calendar
+   ============================================================ */
+function renderCalendar(){
+  const list = filtered();
+  const y = S.cursor.getFullYear(), m = S.cursor.getMonth();
+  const byDate = {};
+  list.forEach(e => (byDate[e.date] = byDate[e.date] || []).push(e));
+
+  const first = new Date(y, m, 1, 12);
+  const start = new Date(y, m, 1 - first.getDay(), 12);
+  const tISO = todayISO();
+
+  let cells = '';
+  for(let i = 0; i < 42; i++){
+    const d = new Date(start.getFullYear(), start.getMonth(), start.getDate() + i, 12);
+    const key = iso(d), out = d.getMonth() !== m;
+    const evs = byDate[key] || [];
+    const pills = evs.slice(0,2).map(e =>
+      `<span class="pill" style="--c:${col(catOf(e.catId).color)}">${esc(e.title)}</span>`).join('');
+    cells += `<button class="cell${out?' out':''}${key===tISO?' today':''}${key===S.selDay?' sel':''}" data-day="${esc(key)}">
+      <span class="n">${d.getDate()}</span>${pills}
+      ${evs.length>2 ? `<span class="more">+${evs.length-2}</span>` : ''}
+    </button>`;
+  }
+
+  const monthEvs = list.filter(e => e.date.startsWith(`${y}-${String(m+1).padStart(2,'0')}`))
+                       .sort((a,b) => a.date.localeCompare(b.date));
+  const groups = {};
+  monthEvs.forEach(e => (groups[e.date] = groups[e.date] || []).push(e));
+
+  let agenda = Object.keys(groups).length
+    ? Object.keys(groups).sort().map(k => `<div class="day-group" id="d-${esc(k)}">
+        <h4>${dayLabel(k)}</h4><div class="stack">${groups[k].map(evCard).join('')}</div></div>`).join('')
+    : `<p style="margin-top:22px;font-size:12px;color:var(--faint);text-align:center">
+         Nothing recorded in ${MON[m]} yet.</p>`;
+
+  // Selected an empty day? Offer to fill it, right there.
+  if(S.selDay && !groups[S.selDay] && parse(S.selDay).getMonth() === m && parse(S.selDay).getFullYear() === y){
+    agenda = `<button class="srow" data-add-on="${esc(S.selDay)}" style="margin-bottom:12px">
+        <span class="ic">＋</span><div style="flex:1"><div class="tt">Add an event on ${longDate(S.selDay)}</div>
+        <div class="ts">This day is still blank</div></div></button>` + agenda;
+  }
+
+  const now = new Date();
+  const otd = (y === now.getFullYear() && m === now.getMonth()) ? otdBlock() : '';
+
+  return otd + `<div class="cal-head">
+      <button class="nav-btn" data-mv="-1" aria-label="Previous month">‹</button>
+      <div class="m">${MON[m]} <span>${y}</span></div>
+      <button class="today-btn" data-mv="0">Today</button>
+      <button class="nav-btn" data-mv="1" aria-label="Next month">›</button>
+    </div>
+    <div class="dow">${DOW.map(d=>`<span>${d}</span>`).join('')}</div>
+    <div class="grid">${cells}</div>
+    <div class="sec-label">${monthEvs.length} event${monthEvs.length===1?'':'s'} this month</div>
+    ${agenda}`;
+}
+
+/* ============================================================
+   Lens 2 — Journey tree
+   ============================================================ */
+function renderTree(){
+  const list = filtered();
+  if(!list.length) return emptyState('Your tree has no branches yet', 'Every event you save grows a new leaf, grouped by the year and month it happened.');
+
+  const years = {};
+  list.forEach(e => {
+    const d = parse(e.date), yy = d.getFullYear(), mm = d.getMonth();
+    years[yy] = years[yy] || {};
+    (years[yy][mm] = years[yy][mm] || []).push(e);
+  });
+
+  return Object.keys(years).sort((a,b) => b - a).map(yy => {
+    const months = years[yy];
+    const count = Object.values(months).reduce((n,a) => n + a.length, 0);
+    const open = S.openYears[yy] !== false;
+    const body = Object.keys(months).sort((a,b) => b - a).map(mm => `
+      <div class="mo">
+        <div class="mo-label">${MON[mm]} · ${months[mm].length}</div>
+        <div class="stack">${months[mm].map(e => `<div class="leaf">${evCard(e)}</div>`).join('')}</div>
+      </div>`).join('');
+    return `<section class="yr" data-open="${open}">
+      <button class="yr-head" data-year="${yy}">
+        <span class="y">${yy}</span><span class="c">${count} event${count===1?'':'s'}</span>
+        <span class="caret">▾</span>
+      </button>
+      <div class="yr-body">${body}</div>
+    </section>`;
+  }).join('');
+}
+
+/* ============================================================
+   Lens 3 — Milestone map  (the signature view)
+   ============================================================ */
+function renderMap(){
+  const all = filtered();
+  const stars = all.filter(e => e.milestone);
+  const useStars = S.mapMode === 'milestones' && stars.length > 0;
+  const list = (useStars ? stars : all).slice().sort((a,b) => a.date.localeCompare(b.date));
+
+  const toggle = `<div class="map-toggle">
+      <button data-map="milestones" aria-pressed="${S.mapMode==='milestones'}">★ Milestones${stars.length?` (${stars.length})`:''}</button>
+      <button data-map="all" aria-pressed="${S.mapMode==='all'}">All events</button>
+    </div>`;
+
+  if(!list.length) return toggle + emptyState('No stops on the map yet',
+    'Mark an event as a milestone while saving it and it becomes a stop on your trail.');
+
+  const note = (S.mapMode === 'milestones' && !stars.length)
+    ? `<p style="font-size:11px;color:var(--faint);margin:8px 0 0">No milestones marked yet — showing everything instead.</p>` : '';
+
+  let out = '', lastYear = null, n = 0;
+  list.forEach((e, i) => {
+    const yy = parse(e.date).getFullYear();
+    if(yy !== lastYear){
+      out += `<div class="checkpoint"><span class="badge">${yy}</span><span class="rule"></span></div>`;
+      lastYear = yy;
+    } else if(i > 0){
+      const bow = n % 2 === 0 ? 21 : 0;
+      out += `<svg class="link" viewBox="0 0 24 34" aria-hidden="true">
+        <path d="M10.5,0 C10.5,13 ${bow},21 10.5,34"/></svg>`;
+    }
+    n++;
+    const c = catOf(e.catId).color;
+    out += `<div class="stop" style="--c:${col(c)}">
+      <span class="pin${e.milestone?' big':''}"><i></i></span>${evCard(e)}
+    </div>`;
+  });
+
+  return toggle + note + `<div class="trail">${out}</div>`;
+}
+
+function emptyState(h, p){
+  return `<div class="empty"><div class="mark">✎</div><h3>${h}</h3><p>${p}</p>
+    <button data-open-add="1">Record an event</button></div>`;
+}
+
+/* ============================================================
+   Insights — streaks and rhythm, computed from months not days
+   (a life journal shouldn't demand a daily entry)
+   ============================================================ */
+function monthIndex(k){ const [y,m] = k.split('-').map(Number); return y*12 + (m-1); }
+function monthKey(i){ return `${Math.floor(i/12)}-${String(i%12 + 1).padStart(2,'0')}`; }
+
+function insights(){
+  if(!S.events.length) return '';
+
+  const counts = {};
+  S.events.forEach(e => { const k = e.date.slice(0,7); counts[k] = (counts[k]||0) + 1; });
+  const keys = Object.keys(counts).sort();
+
+  // longest consecutive run of months containing at least one event
+  let longest = 1, run = 1, tail = 1;
+  for(let i = 1; i < keys.length; i++){
+    run = monthIndex(keys[i]) === monthIndex(keys[i-1]) + 1 ? run + 1 : 1;
+    if(run > longest) longest = run;
+  }
+  tail = run;
+  const nowIdx = monthIndex(todayISO().slice(0,7));
+  const lastIdx = monthIndex(keys[keys.length-1]);
+  const isLive = lastIdx === nowIdx;
+  const streakLabel = isLive ? 'Current run' : 'Last run';
+
+  // busiest single month
+  const busiest = keys.reduce((a,b) => counts[b] > counts[a] ? b : a, keys[0]);
+  const [by, bm] = busiest.split('-').map(Number);
+
+  // last 12 months
+  const bars = [];
+  for(let i = nowIdx - 11; i <= nowIdx; i++){
+    const k = monthKey(i);
+    bars.push({ k, n: counts[k] || 0, m: i % 12, now: i === nowIdx });
+  }
+  const peak = Math.max(1, ...bars.map(b => b.n));
+
+  // category split
+  const total = S.events.length;
+  const split = S.cats.map(c => ({ ...c, n: S.events.filter(e => e.catId === c.id).length }))
+                      .filter(c => c.n > 0)
+                      .sort((a,b) => b.n - a.n);
+
+  return `<div class="sec-label">Your rhythm</div>
+    <div class="stat-grid">
+      <div class="stat"><b>${tail}</b><span>${streakLabel}</span></div>
+      <div class="stat"><b>${longest}</b><span>Longest run</span></div>
+      <div class="stat"><b>${counts[busiest]}</b><span>Busiest month</span></div>
+    </div>
+    <p class="note">${isLive
+      ? `You've recorded something every month for ${tail} month${tail===1?'':'s'} straight.`
+      : `Your last run reached ${tail} month${tail===1?'':'s'}, ending ${MON3[monthIndex(keys[keys.length-1])%12]} ${keys[keys.length-1].slice(0,4)}.`}
+      ${MON[bm-1]} ${by} was your fullest, with ${counts[busiest]} event${counts[busiest]===1?'':'s'}.</p>
+
+    <div class="sec-label">Last 12 months</div>
+    <div class="bars">
+      ${bars.map(b => `<div class="b${b.now?' now':''}" title="${b.n}">
+        <i style="height:${Math.round(b.n / peak * 100)}%"></i><span>${MON3[b.m][0]}</span></div>`).join('')}
+    </div>
+
+    <div class="sec-label">What you record most</div>
+    <div class="split">${split.map(c =>
+      `<i style="width:${(c.n/total*100).toFixed(1)}%;background:${col(c.color)}"></i>`).join('')}</div>
+    <div class="legend">${split.map(c =>
+      `<span><b style="background:${col(c.color)}"></b>${esc(c.name)} ${Math.round(c.n/total*100)}%</span>`).join('')}</div>`;
+}
+
+/* ============================================================
+   Rooms still being built
+   ============================================================ */
+const WIP = {
+  diary: {
+    glyph:'✒', name:'Diary',
+    tagline:'A place for the ordinary days — the ones that are not events, but still worth keeping.',
+    plan:[
+      ['Write', 'One dated page a day, as long or short as you like.'],
+      ['Keep', 'Stored the same way as everything else — on this device, nowhere else.'],
+      ['Carry', 'Included in every export alongside your timeline.']
+    ]
+  },
+  manifest: {
+    glyph:'✧', name:'Manifestation',
+    tagline:'The things you are quietly working toward, written down so you can meet them again later.',
+    plan:[
+      ['Name it', 'An intention, in your words, with a date you are aiming for.'],
+      ['Revisit', 'Chrono brings it back to you instead of letting it fade.'],
+      ['Close it', 'Mark what came true and link it to the event that made it real.']
+    ]
+  },
+  habit: {
+    glyph:'◈', name:'Habits',
+    tagline:'Small repeats you want to keep. Tracked gently, without turning your life into a scoreboard.',
+    plan:[
+      ['Mark', 'One tap for a day done. No timers, no nagging.'],
+      ['See', 'A calm month view — missed days are just days, not failures.'],
+      ['Blend', 'Feeds the rhythm chart already in your Library.']
+    ]
+  }
+};
+
+function renderWIP(key){
+  const w = WIP[key];
+  return `<div class="wip">
+    <div class="glyph">${w.glyph}</div>
+    <h3>${w.name}</h3>
+    <p class="tagline">${w.tagline}</p>
+    <span class="flag">Work in progress</span>
+    <ul>${w.plan.map(([h,t]) => `<li><b>${h}</b><span>${t}</span></li>`).join('')}</ul>
+    <p class="note" style="text-align:center;margin-top:18px">
+      Nothing here saves yet. Your timeline is unaffected.</p>
+  </div>`;
+}
+
+/* ============================================================
+   Library tab
+   ============================================================ */
+function renderLibrary(){
+  const total = S.events.length;
+  const ms = S.events.filter(e => e.milestone).length;
+  const years = new Set(S.events.map(e => e.date.slice(0,4))).size;
+  const byCat = S.cats.map(c => ({ ...c, n: S.events.filter(e => e.catId === c.id).length }));
+
+  return `<div class="sec-label">Your record</div>
+    <div class="stat-grid">
+      <div class="stat"><b>${total}</b><span>Events</span></div>
+      <div class="stat"><b>${ms}</b><span>Milestones</span></div>
+      <div class="stat"><b>${years}</b><span>Years</span></div>
+    </div>
+    ${insights()}
+    <div class="sec-label">Categories</div>
+    <div class="stack" style="margin-bottom:6px">
+      ${byCat.map(c => `<div class="srow" style="margin:0">
+        <span class="ic" style="background:color-mix(in srgb,${col(c.color)} 20%,transparent)">
+          <span style="width:9px;height:9px;border-radius:50%;background:${col(c.color)};display:block"></span></span>
+        <div style="flex:1"><div class="tt">${esc(c.name)}</div><div class="ts">${c.n} event${c.n===1?'':'s'}</div></div>
+        ${DEFAULT_CATS.some(d=>d.id===c.id) ? '' : `<button class="ts" data-delcat="${esc(c.id)}" style="color:#FF9BB3;font-weight:700">Remove</button>`}
+      </div>`).join('')}
+    </div>
+    <div class="sec-label">Take your data with you</div>
+    <button class="srow" data-act="json"><span class="ic">⤓</span>
+      <div style="flex:1"><div class="tt">Export backup (.json)</div><div class="ts">Everything, and it can be imported back</div></div></button>
+    <button class="srow" data-act="md"><span class="ic">✎</span>
+      <div style="flex:1"><div class="tt">Export as readable notes (.md)</div><div class="ts">For reading, printing or pasting anywhere</div></div></button>
+    <button class="srow" data-act="csv"><span class="ic">▦</span>
+      <div style="flex:1"><div class="tt">Export as spreadsheet (.csv)</div><div class="ts">Opens in Numbers, Excel or Sheets</div></div></button>
+    <button class="srow" data-act="import"><span class="ic">⤒</span>
+      <div style="flex:1"><div class="tt">Import a backup</div><div class="ts">Merges with what is already here</div></div></button>
+    <div class="sec-label">Privacy</div>
+    <div class="srow"><span class="ic">${Store.live ? '✓' : '!'}</span>
+      <div style="flex:1"><div class="tt">${Store.live ? 'Saved on this device' : 'Preview mode — not saving'}</div>
+      <div class="ts">${Store.live
+        ? 'Chrono makes no network requests at all. Nothing is sent anywhere, because there is nowhere for it to go.'
+        : 'This browser is blocking local storage, so nothing you write here will survive. Open the hosted app instead.'}</div></div></div>
+    <div class="srow"><span class="ic">◐</span>
+      <div style="flex:1"><div class="tt">What could still read this</div>
+      <div class="ts">Any other page you publish on the same domain shares this storage and could read it. Keep this address to Chrono alone, or use a custom domain.</div></div></div>
+    <div class="srow"><span class="ic">⚑</span>
+      <div style="flex:1"><div class="tt">Not encrypted</div>
+      <div class="ts">Anyone who unlocks your phone can open Chrono. Your device passcode is the lock.</div></div></div>
+    <button class="srow" data-act="wipe"><span class="ic">✕</span>
+      <div style="flex:1"><div class="tt" style="color:#FF9BB3">Delete everything</div><div class="ts">Cannot be undone — export first</div></div></button>
+    <input type="file" id="fileIn" accept=".json,application/json" hidden>`;
+}
+
+/* ============================================================
+   Render
+   ============================================================ */
+function renderChips(){
+  const box = $('#chips');
+  if(S.tab !== 'timeline'){ box.style.display = 'none'; return; }
+  box.style.display = 'flex';
+  const n = id => id === 'all' ? S.events.length : S.events.filter(e => e.catId === id).length;
+  box.innerHTML = `<button class="chip" data-cat="all" aria-pressed="${S.cat==='all'}">All ${n('all')}</button>` +
+    S.cats.map(c => `<button class="chip" data-cat="${esc(c.id)}" aria-pressed="${S.cat===c.id}" style="color:${S.cat===c.id?col(c.color):''}">
+      <span class="dot" style="background:${col(c.color)}"></span>${esc(c.name)} ${n(c.id)}</button>`).join('');
+}
+
+const SUBTITLE = { timeline:'on this device only', diary:'coming soon', manifest:'coming soon',
+                   habit:'coming soon', library:'your library' };
+
+function render(){
+  const v = $('#view');
+  const onTimeline = S.tab === 'timeline';
+  const searching = onTimeline && S.query.trim().length > 0;
+  $('#lens').style.display = (onTimeline && !searching) ? 'flex' : 'none';
+  $('#searchBtn').style.display = onTimeline ? 'grid' : 'none';
+  $('#searchRow').classList.toggle('on', onTimeline && S.searchOpen);
+  $('#searchBtn').setAttribute('aria-pressed', String(S.searchOpen));
+  $('#fabAdd').hidden = !onTimeline;
+  $('#brandSub').textContent = SUBTITLE[S.tab] || '';
+  document.querySelectorAll('.nav button[data-tab]').forEach(b => {
+    if(b.dataset.tab === S.tab) b.setAttribute('aria-current','page');
+    else b.removeAttribute('aria-current');
+  });
+  document.querySelectorAll('#lens button').forEach(b =>
+    b.setAttribute('aria-selected', String(b.dataset.lens === S.lens)));
+  renderChips();
+
+  v.classList.remove('anim');
+  v.innerHTML = WIP[S.tab] ? renderWIP(S.tab)
+    : S.tab === 'library' ? renderLibrary()
+    : searching ? renderSearch()
+    : S.lens === 'calendar' ? renderCalendar()
+    : S.lens === 'tree' ? renderTree()
+    : renderMap();
+  void v.offsetWidth;          // force reflow so the stagger replays
+  v.classList.add('anim');
+}
+
+/* ============================================================
+   Sheets
+   ============================================================ */
+function openSheet(html){
+  $('#sheet').innerHTML = `<div class="grab"></div>` + html;
+  $('#sheet').classList.add('on'); $('#scrim').classList.add('on');
+  document.body.style.overflow = 'hidden';
+}
+function closeSheet(){
+  $('#sheet').classList.remove('on'); $('#scrim').classList.remove('on');
+  document.body.style.overflow = '';
+  S.draft = null;
+}
+
+function openEditor(ev){
+  S.draft = ev ? { ...ev } : {
+    id:null, date: S.selDay || todayISO(), title:'', description:'', about:'',
+    catId: S.cats[0].id, milestone:false
+  };
+  S.draft.newColor = SWATCHES[0];
+  drawEditor();
+}
+
+function drawEditor(){
+  const d = S.draft;
+  if(!d) return;
+  openSheet(`
+    <h2>${d.id ? 'Edit event' : 'Record an event'}</h2>
+    <p class="hint">${d.id ? 'Change anything and save.' : 'Small details are what make it worth re-reading later.'}</p>
+    <div class="field"><label for="f-date">When</label><input id="f-date" type="date" value="${esc(d.date)}"></div>
+    <div class="field"><label for="f-title">Title</label>
+      <input id="f-title" type="text" placeholder="Moved to Bengaluru" value="${esc(d.title)}" maxlength="90"></div>
+    <div class="field"><label for="f-about">About</label>
+      <input id="f-about" type="text" placeholder="Who or where — Amma, Koramangala…" value="${esc(d.about)}" maxlength="60"></div>
+    <div class="field"><label for="f-desc">What happened</label>
+      <textarea id="f-desc" rows="4" placeholder="Write it the way you would tell a friend.">${esc(d.description)}</textarea></div>
+    <div class="field"><label>Category</label>
+      <div class="cat-pick" id="catPick">
+        ${S.cats.map(c => `<button data-pick="${esc(c.id)}" aria-pressed="${d.catId===c.id}" style="--c:${col(c.color)}">
+          <span class="dot"></span>${esc(c.name)}</button>`).join('')}
+        <button class="new" data-newcat="1">＋ New</button>
+      </div>
+      <div class="newcat" id="newCat">
+        <input id="f-newcat" type="text" placeholder="Category name" maxlength="18">
+        <button class="btn btn-primary" style="flex:0 0 auto;padding:9px 16px" data-addcat="1">Add</button>
+      </div>
+      <div class="swatches" id="swatches" style="display:none">
+        ${SWATCHES.map(s => `<button data-sw="${s}" style="background:${s}" aria-pressed="${d.newColor===s}"></button>`).join('')}
+      </div>
+    </div>
+    <div class="toggle-row">
+      <div><div class="tt">Mark as a milestone</div><div class="ts">Milestones become stops on your map</div></div>
+      <button class="switch" id="msToggle" aria-pressed="${!!d.milestone}"><i></i></button>
+    </div>
+    <div class="btn-row">
+      ${d.id ? `<button class="btn btn-danger" data-del="${esc(d.id)}">Delete</button>` : `<button class="btn btn-ghost" data-close="1">Cancel</button>`}
+      <button class="btn btn-primary" data-save="1">${d.id ? 'Save changes' : 'Save event'}</button>
+    </div>`);
+  setTimeout(() => { if(!d.id) $('#f-title')?.focus(); }, 340);
+}
+
+function syncDraft(){
+  const d = S.draft; if(!d) return;
+  d.date = $('#f-date')?.value || d.date;
+  d.title = $('#f-title')?.value ?? d.title;
+  d.about = $('#f-about')?.value ?? d.about;
+  d.description = $('#f-desc')?.value ?? d.description;
+}
+
+function openDetail(id){
+  const e = S.events.find(x => x.id === id); if(!e) return;
+  const c = catOf(e.catId);
+  openSheet(`<div class="det" style="--c:${col(c.color)}">
+    <span class="det-cat"><span style="width:7px;height:7px;border-radius:50%;background:${col(c.color)};display:inline-block"></span>${esc(c.name)}</span>
+    ${e.milestone ? '<span class="det-cat" style="margin-left:6px">★ Milestone</span>' : ''}
+    <h2>${esc(e.title)}</h2>
+    <div class="det-date">${longDate(e.date)}${e.about ? ' · ' + esc(e.about) : ''}</div>
+    ${e.description ? `<div class="block"><h5>What happened</h5><p>${esc(e.description)}</p></div>` : ''}
+    <div class="btn-row">
+      <button class="btn btn-ghost" data-close="1">Close</button>
+      <button class="btn btn-primary" data-edit="${esc(e.id)}">Edit</button>
+    </div></div>`);
+}
+
+/* ============================================================
+   Actions
+   ============================================================ */
+function saveDraft(){
+  if(!S.draft) return;
+  syncDraft();
+  const d = S.draft;
+  const title = cleanText(d.title, CAP.title);
+  if(!title){ toast('Give it a title first'); $('#f-title')?.focus(); return; }
+  if(!validDate(d.date)){ toast('Pick a valid date'); return; }
+  if(!S.cats.some(c => c.id === d.catId)) d.catId = S.cats[0].id;
+  const about = cleanText(d.about, CAP.about);
+  const description = cleanText(d.description, CAP.desc);
+  const now = Date.now();
+  if(d.id){
+    const i = S.events.findIndex(e => e.id === d.id);
+    if(i < 0){ toast('That event no longer exists'); closeSheet(); render(); return; }
+    S.events[i] = { ...S.events[i], date:d.date, title, about, description,
+                    catId:d.catId, milestone:!!d.milestone, updated:now };
+    toast('Saved');
+  } else {
+    if(S.events.length >= MAX_EVENTS){ toast('This device is at its event limit'); return; }
+    S.events.push({ id:uid(), date:d.date, title, about, description,
+                    catId:d.catId, milestone:!!d.milestone, created:now, updated:now });
+    toast('Event recorded');
+    S.cursor = parse(d.date);
+  }
+  saveEvents(); closeSheet(); render(); haptic();
+}
+
+function deleteEvent(id){
+  if(!confirm('Delete this event? This cannot be undone.')) return;
+  S.events = S.events.filter(e => e.id !== id);
+  saveEvents(); closeSheet(); render(); toast('Deleted');
+}
+
+function download(name, text, type){
+  try{
+    const b = new Blob([text], { type });
+    const u = URL.createObjectURL(b);
+    const a = document.createElement('a');
+    a.href = u; a.download = name; a.rel = 'noopener'; document.body.appendChild(a); a.click();
+    setTimeout(() => { URL.revokeObjectURL(u); a.remove(); }, 800);
+    toast('Exported ' + name);
+  }catch(e){
+    // Silently copying a whole journal to the clipboard would let any other
+    // app read it, so this is never done without asking.
+    if(confirm('The download was blocked. Copy the backup to your clipboard instead?\n\nAnything on your clipboard can be read by other apps until you copy something else.')){
+      navigator.clipboard?.writeText(text)
+        .then(() => toast('Copied to clipboard'))
+        .catch(() => toast('Could not export on this device'));
+    } else {
+      toast('Export cancelled');
+    }
+  }
+}
+
+function exportJSON(){
+  download(`chrono-studio-${todayISO()}.json`,
+    JSON.stringify({ app:'Chrono Studio', version:1, exported:new Date().toISOString(),
+                     categories:S.cats, events:S.events }, null, 2), 'application/json');
+}
+function exportMD(){
+  const list = S.events.slice().sort((a,b) => a.date.localeCompare(b.date));
+  let out = `# Chrono Studio\n\n_${list.length} events · exported ${longDate(todayISO())}_\n`;
+  let y = null, m = null;
+  list.forEach(e => {
+    const d = parse(e.date);
+    if(d.getFullYear() !== y){ y = d.getFullYear(); m = null; out += `\n\n## ${y}\n`; }
+    if(d.getMonth() !== m){ m = d.getMonth(); out += `\n### ${MON[m]}\n`; }
+    out += `\n**${e.date} — ${e.title}**${e.milestone ? ' ★' : ''}  \n`;
+    out += `_${catOf(e.catId).name}${e.about ? ' · ' + e.about : ''}_  \n`;
+    if(e.description) out += `${e.description}\n`;
+  });
+  download(`chrono-studio-${todayISO()}.md`, out, 'text/markdown');
+}
+function exportCSV(){
+  // A cell beginning = + - @ or a control char is executed as a formula by
+  // Excel, Numbers and Sheets. Prefixing with an apostrophe forces text.
+  const RISKY = /^[=+\-@\t\r]/;
+  const q = v => {
+    let s = String(v == null ? '' : v);
+    if(RISKY.test(s)) s = "'" + s;
+    return `"${s.replace(/"/g,'""')}"`;
+  };
+  const rows = [['Date','Title','Category','About','Description','Milestone']];
+  S.events.slice().sort((a,b) => a.date.localeCompare(b.date))
+    .forEach(e => rows.push([e.date, e.title, catOf(e.catId).name, e.about, e.description, e.milestone ? 'Yes' : 'No']));
+  download(`chrono-studio-${todayISO()}.csv`, rows.map(r => r.map(q).join(',')).join('\r\n'), 'text/csv');
+}
+
+function importJSON(file){
+  if(file.size > MAX_IMPORT_BYTES){ toast('That file is too large to be a Chrono backup'); return; }
+  const r = new FileReader();
+  r.onerror = () => toast("Could not read that file");
+  r.onload = () => {
+    let data;
+    try { data = JSON.parse(r.result); }
+    catch(e){ toast("That file isn't a Chrono backup"); return; }
+
+    const rawEvents = Array.isArray(data) ? data : (data && data.events);
+    const rawCats   = (data && data.categories) || [];
+    if(!Array.isArray(rawEvents)){ toast("That file isn't a Chrono backup"); return; }
+
+    // Validate the incoming file on its own terms first, then merge.
+    const clean = normaliseAll([...S.cats, ...(Array.isArray(rawCats) ? rawCats : [])], rawEvents);
+    const rejected = Math.min(rawEvents.length, MAX_EVENTS) - clean.events.length;
+
+    const knownCats = new Set(S.cats.map(c => c.id));
+    let newCats = 0;
+    clean.cats.forEach(c => {
+    if(knownCats.has(c.id) || S.cats.length >= MAX_CATS) return;
+    S.cats.push(c); newCats++;
+  });
+
+    const have = new Set(S.events.map(e => e.id));
+    let added = 0;
+    clean.events.forEach(e => {
+      if(have.has(e.id)) return;                 // same id = already have it
+      if(S.events.length >= MAX_EVENTS) return;
+      have.add(e.id); S.events.push(e); added++;
+    });
+
+    saveCats(); saveEvents(); render();
+    const bits = [];
+    bits.push(added ? `Added ${added} event${added===1?'':'s'}` : 'Nothing new to add');
+    if(newCats) bits.push(`${newCats} categor${newCats===1?'y':'ies'}`);
+    if(rejected > 0) bits.push(`${rejected} skipped as invalid`);
+    toast(bits.join(' · '));
+  };
+  r.readAsText(file);
+}
+
+/* ============================================================
+   Wiring
+   ============================================================ */
+document.addEventListener('click', ev => {
+  const t = ev.target.closest('[data-lens],[data-cat],[data-mv],[data-day],[data-year],[data-map],[data-ev],[data-tab],[data-save],[data-close],[data-del],[data-edit],[data-pick],[data-newcat],[data-addcat],[data-sw],[data-act],[data-delcat],[data-open-add],[data-add-on]');
+  if(!t) return;
+  const d = t.dataset;
+
+  if(d.lens){ S.lens = d.lens; render(); return; }
+  if(d.cat){ S.cat = d.cat; render(); return; }
+  if(d.mv !== undefined){
+    const n = +d.mv;
+    if(n === 0){ S.cursor = new Date(); S.selDay = todayISO(); }
+    else S.cursor = new Date(S.cursor.getFullYear(), S.cursor.getMonth() + n, 1, 12);
+    render(); return;
+  }
+  if(d.day){
+    S.selDay = S.selDay === d.day ? null : d.day;
+    const had = S.selDay;
+    render();
+    if(had){
+      const el = document.getElementById('d-' + had);
+      if(el){ el.classList.add('flash'); el.scrollIntoView({ behavior:'smooth', block:'center' }); }
+    }
+    return;
+  }
+  if(d.addOn){
+    openEditor({ id:null, date:d.addOn, title:'', description:'', about:'', catId:S.cats[0].id, milestone:false });
+    return;
+  }
+  if(d.year){ S.openYears[d.year] = S.openYears[d.year] === false; render(); return; }
+  if(d.map){ S.mapMode = d.map; render(); return; }
+  if(d.ev){ openDetail(d.ev); return; }
+  if(d.openAdd){ openEditor(null); return; }
+
+  if(d.tab){ S.tab = d.tab; window.scrollTo({ top:0 }); render(); return; }
+
+  // The sheet remains in the DOM during its close transition, so a fast tap
+  // can land here after the draft is gone. Fail closed rather than throw.
+  if((d.pick || d.sw || d.addcat || d.save || d.newcat) && !S.draft){ closeSheet(); return; }
+  if(d.pick){ syncDraft(); S.draft.catId = d.pick; drawEditor(); return; }
+  if(d.newcat){ $('#newCat').classList.add('on'); $('#swatches').style.display = 'flex'; $('#f-newcat').focus(); return; }
+  if(d.sw){ S.draft.newColor = d.sw; document.querySelectorAll('[data-sw]').forEach(b =>
+      b.setAttribute('aria-pressed', String(b.dataset.sw === d.sw))); return; }
+  if(d.addcat){
+    const name = cleanText($('#f-newcat').value, CAP.name);
+    if(!name){ toast('Name the category'); return; }
+    if(S.cats.length >= MAX_CATS){ toast('That is as many categories as Chrono holds'); return; }
+    if(S.cats.some(c => c.name.toLowerCase() === name.toLowerCase())){ toast('That one already exists'); return; }
+    const c = { id:'c_' + uid(), name, color: RX_COLOR.test(S.draft.newColor) ? S.draft.newColor : SWATCHES[4] };
+    S.cats.push(c); saveCats(); syncDraft(); S.draft.catId = c.id; drawEditor(); toast('Category added'); return;
+  }
+  if(d.save){ saveDraft(); return; }
+  if(d.close){ closeSheet(); return; }
+  if(d.del){ deleteEvent(d.del); return; }
+  if(d.edit){
+    const target = S.events.find(e => e.id === d.edit);
+    if(!target){ toast('That event no longer exists'); closeSheet(); render(); return; }
+    closeSheet(); setTimeout(() => openEditor(target), 260); return;
+  }
+  if(d.delcat){
+    const c = catOf(d.delcat), n = S.events.filter(e => e.catId === d.delcat).length;
+    if(n && !confirm(`${n} event(s) use "${c.name}". They will move to ${S.cats[0].name}. Continue?`)) return;
+    S.events.forEach(e => { if(e.catId === d.delcat) e.catId = S.cats[0].id; });
+    S.cats = S.cats.filter(x => x.id !== d.delcat);
+    if(S.cat === d.delcat) S.cat = 'all';
+    saveCats(); saveEvents(); render(); toast('Category removed'); return;
+  }
+  if(d.act){
+    if(d.act === 'json') exportJSON();
+    if(d.act === 'md') exportMD();
+    if(d.act === 'csv') exportCSV();
+    if(d.act === 'import') $('#fileIn').click();
+    if(d.act === 'wipe'){
+      if(confirm('Delete every event and custom category? Export a backup first — this cannot be undone.')){
+        S.events = []; S.cats = DEFAULT_CATS.slice(); S.cat = 'all';
+        saveEvents(); saveCats(); render(); toast('Everything deleted');
+      }
+    }
+    return;
+  }
+});
+
+document.addEventListener('change', e => {
+  if(e.target.id === 'fileIn' && e.target.files[0]){ importJSON(e.target.files[0]); e.target.value = ''; }
+});
+document.addEventListener('click', e => {
+  const s = e.target.closest('#msToggle');
+  if(!s || !S.draft) return;
+  syncDraft();
+  S.draft.milestone = !S.draft.milestone;
+  s.setAttribute('aria-pressed', String(S.draft.milestone));
+  haptic();
+});
+$('#fabAdd').addEventListener('click', () => openEditor(null));
+
+/* search wiring — the field lives outside #view so typing never loses focus */
+$('#searchBtn').addEventListener('click', () => {
+  S.searchOpen = !S.searchOpen;
+  if(!S.searchOpen){ S.query = ''; $('#q').value = ''; }
+  render();
+  if(S.searchOpen) $('#q').focus();
+});
+$('#q').addEventListener('input', e => { S.query = e.target.value; render(); });
+$('#qClear').addEventListener('click', () => {
+  S.query = ''; $('#q').value = ''; render(); $('#q').focus();
+});
+
+$('#scrim').addEventListener('click', closeSheet);
+document.addEventListener('keydown', e => { if(e.key === 'Escape') closeSheet(); });
+
+/* swipe between lenses */
+let sx = 0, sy = 0;
+document.addEventListener('touchstart', e => { sx = e.touches[0].clientX; sy = e.touches[0].clientY; }, { passive:true });
+document.addEventListener('touchend', e => {
+  if(S.tab !== 'timeline' || S.query.trim() || $('#sheet').classList.contains('on')) return;
+  const dx = e.changedTouches[0].clientX - sx, dy = e.changedTouches[0].clientY - sy;
+  if(Math.abs(dx) < 70 || Math.abs(dy) > 55) return;
+  const order = ['calendar','tree','map'], i = order.indexOf(S.lens);
+  const j = dx < 0 ? Math.min(i + 1, 2) : Math.max(i - 1, 0);
+  if(i !== j){ S.lens = order[j]; render(); haptic(); }
+}, { passive:true });
+
+load();
+S.selDay = todayISO();
+render();
+
+if('serviceWorker' in navigator){
+  window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(()=>{}));
+}
+</script>
+</body>
+</html>
