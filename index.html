@@ -1,0 +1,3130 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="studio">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Chrono Studio</title>
+
+<meta name="description" content="A private, on-device timeline of your life.">
+<meta name="referrer" content="no-referrer">
+<meta http-equiv="Content-Security-Policy" content="
+  default-src 'none';
+  script-src 'self' 'unsafe-inline';
+  style-src 'self' 'unsafe-inline';
+  img-src 'self';
+  font-src 'self';
+  manifest-src 'self';
+  worker-src 'self';
+  connect-src 'none';
+  base-uri 'none';
+  form-action 'none';
+  frame-ancestors 'none';
+  object-src 'none';
+">
+<meta name="theme-color" content="#0C0E16">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Chrono">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="icon" href="icon-192.png">
+
+<script>
+/* Theme is applied before first paint so the app never flashes the wrong ground. */
+(function(){
+  // Reads exactly one key, its own. Never enumerates the shared store.
+  var ok = ['studio','graphite','sea','forest','blossom','ink','midnight','noir'], t = null;
+  try { t = localStorage.getItem('chrono.theme.v1'); } catch(e){}
+  document.documentElement.setAttribute('data-theme', ok.indexOf(t) >= 0 ? t : 'studio');
+})();
+</script>
+
+<style>
+/* Optional self-hosted font. Drop ComicNeue-Regular.woff2 and ComicNeue-Bold.woff2
+   into a /fonts folder and this activates automatically. If the files are absent
+   the browser silently falls through to the next family in --f. Nothing is ever
+   fetched from a third party, by design. */
+@font-face{
+  font-family:"Comic Neue";font-style:normal;font-weight:400;font-display:swap;
+  src:url("fonts/ComicNeue-Regular.woff2") format("woff2");
+}
+@font-face{
+  font-family:"Comic Neue";font-style:normal;font-weight:700;font-display:swap;
+  src:url("fonts/ComicNeue-Bold.woff2") format("woff2");
+}
+
+/* ============================================================
+   CHRONO STUDIO — ink & handwriting
+   Palette
+     --bg      #0C0E16  page ground
+     --surface    #151A29  raised surface
+     --text    #EDF0F8  primary type
+     --text-2    #858CA6  secondary type
+     inks: sky #7FD1FF · mint #6EE7A8 · amber #FFC46B · rose #FF9BB3
+   ============================================================ */
+
+/* ============================================================
+   THEMES
+   Every colour in the app resolves through these tokens, so a
+   theme is a token set and nothing else. Swap data-theme on
+   <html> and the whole app follows, including the diary paper.
+   ============================================================ */
+:root{
+  --r-md:16px; --r-lg:22px; --r-xl:30px;
+  --sat:env(safe-area-inset-top); --sab:env(safe-area-inset-bottom);
+  --kb:0px;
+  --f: "Comic Sans MS","Comic Neue","Chalkboard SE","Chalkboard","Bradley Hand",ui-rounded,system-ui,cursive;
+}
+
+/* ---- Studio: warm cream, ink brown, terracotta. Editorial and calm. ---- */
+/* Also bound to :root so the app is never left without colours if the
+   data-theme attribute goes missing for any reason. */
+:root, [data-theme="studio"]{
+  color-scheme:light;
+  --bg:#F4F0E8; --surface:#FFFDF9; --surface-2:#EBE4D7;
+  --text:#211E19; --text-2:#6B6357; --text-3:#9C9384;
+  --line:rgba(33,30,25,.10); --line-2:rgba(33,30,25,.20);
+  --accent:#C25733; --accent-2:#E0904A; --on-accent:#FFF9F3;
+  --c2:#1F7A6B; --c3:#3B6FB5; --c4:#A8582A;
+  --shadow-head:0 6px 18px rgba(60,50,35,.07);
+  --edge:inset 0 1px 0 rgba(255,255,255,.7);
+  --scrim:rgba(45,38,30,.34);
+  --shadow-card:0 1px 2px rgba(60,50,35,.05);
+  --shadow-pop:0 12px 30px rgba(60,50,35,.16);
+  --glow:rgba(194,87,51,.22);
+  --danger:#C0392B; --danger-bg:rgba(192,57,43,.09); --danger-line:rgba(192,57,43,.28);
+  --paper-a:#FFFDF6; --paper-b:#EDE4CE; --paper-text:#2A2620; --paper-sub:#8A7F63; --paper-margin:rgba(200,80,80,.30);
+}
+
+/* ---- Sea glass: cool mist, deep navy, clear blue. Fresh and crisp. ---- */
+[data-theme="sea"]{
+  color-scheme:light;
+  --bg:#EDF1F7; --surface:#FFFFFF; --surface-2:#DFE7F1;
+  --text:#152033; --text-2:#586880; --text-3:#8B97AC;
+  --line:rgba(21,32,51,.09); --line-2:rgba(21,32,51,.18);
+  --accent:#2E6FE0; --accent-2:#3FB6D8; --on-accent:#FFFFFF;
+  --c2:#E0603C; --c3:#12A085; --c4:#7C5CD6;
+  --shadow-head:0 6px 18px rgba(20,35,60,.07);
+  --edge:inset 0 1px 0 rgba(255,255,255,.9);
+  --scrim:rgba(15,25,40,.36);
+  --shadow-card:0 1px 2px rgba(20,35,60,.05);
+  --shadow-pop:0 12px 30px rgba(20,35,60,.18);
+  --glow:rgba(46,111,224,.24);
+  --danger:#D64545; --danger-bg:rgba(214,69,69,.09); --danger-line:rgba(214,69,69,.28);
+  --paper-a:#FFFFFF; --paper-b:#DCE5F0; --paper-text:#1A2436; --paper-sub:#7C8AA0; --paper-margin:rgba(214,69,69,.28);
+}
+
+/* ---- Blossom: blush and lavender, candy accents. Soft and playful. ---- */
+[data-theme="blossom"]{
+  color-scheme:light;
+  --bg:#FAF3F7; --surface:#FFFFFF; --surface-2:#F3E7EF;
+  --text:#2B1E29; --text-2:#796373; --text-3:#A794A3;
+  --line:rgba(43,30,41,.09); --line-2:rgba(43,30,41,.18);
+  --accent:#D14D8A; --accent-2:#9B6BD6; --on-accent:#FFFFFF;
+  --c2:#3FA98C; --c3:#E0952F; --c4:#5B8FD6;
+  --shadow-head:0 6px 18px rgba(60,30,50,.07);
+  --edge:inset 0 1px 0 rgba(255,255,255,.9);
+  --scrim:rgba(40,25,38,.34);
+  --shadow-card:0 1px 2px rgba(60,30,50,.05);
+  --shadow-pop:0 12px 30px rgba(60,30,50,.16);
+  --glow:rgba(209,77,138,.24);
+  --danger:#D6425F; --danger-bg:rgba(214,66,95,.09); --danger-line:rgba(214,66,95,.28);
+  --paper-a:#FFFCFE; --paper-b:#EEDCE8; --paper-text:#2B1E29; --paper-sub:#9C8496; --paper-margin:rgba(214,66,95,.28);
+}
+
+/* ---- Graphite: cool neutral, near-black type, one vivid accent. ---- */
+[data-theme="graphite"]{
+  color-scheme:light;
+  --bg:#F2F3F5; --surface:#FFFFFF; --surface-2:#E4E6EA;
+  --text:#16181D; --text-2:#5C6068; --text-3:#8D929B;
+  --line:rgba(22,24,29,.10); --line-2:rgba(22,24,29,.20);
+  --accent:#E8552F; --accent-2:#FF8A5B; --on-accent:#FFFFFF;
+  --c2:#1F7A8C; --c3:#2E8B57; --c4:#6B5BD6;
+  --scrim:rgba(15,17,22,.38);
+  --shadow-card:0 1px 2px rgba(20,22,28,.06);
+  --shadow-pop:0 14px 34px rgba(20,22,28,.20);
+  --shadow-head:0 6px 18px rgba(20,22,28,.08);
+  --edge:inset 0 1px 0 rgba(255,255,255,.9);
+  --glow:rgba(232,85,47,.26);
+  --danger:#D6342A; --danger-bg:rgba(214,52,42,.09); --danger-line:rgba(214,52,42,.28);
+  --paper-a:#FFFFFF; --paper-b:#E2E5EA; --paper-text:#16181D; --paper-sub:#82868F; --paper-margin:rgba(214,52,42,.26);
+}
+
+/* ---- Noir: high contrast, near-black ground, amber accent. ---- */
+[data-theme="noir"]{
+  color-scheme:dark;
+  --bg:#08090B; --surface:#14161A; --surface-2:#1E2126;
+  --text:#F7F8FA; --text-2:#9AA0AA; --text-3:#666C77;
+  --line:rgba(255,255,255,.09); --line-2:rgba(255,255,255,.18);
+  --accent:#F5A524; --accent-2:#FFD166; --on-accent:#0B0C0E;
+  --c2:#4EA8FF; --c3:#3FCF8E; --c4:#FF6B8A;
+  --scrim:rgba(0,0,0,.66);
+  --shadow-card:none;
+  --shadow-pop:0 14px 34px rgba(0,0,0,.62);
+  --shadow-head:0 6px 18px rgba(0,0,0,.5);
+  --edge:inset 0 1px 0 rgba(255,255,255,.06);
+  --glow:rgba(245,165,36,.30);
+  --danger:#FF6B6B; --danger-bg:rgba(255,107,107,.11); --danger-line:rgba(255,107,107,.32);
+  --paper-a:#F7F4EC; --paper-b:#E4DFD2; --paper-text:#1A1A1E; --paper-sub:#867F70; --paper-margin:rgba(200,80,80,.30);
+}
+
+/* ---- Forest: pale sage, deep green, warm gold. ---- */
+[data-theme="forest"]{
+  color-scheme:light;
+  --bg:#EEF2ED; --surface:#FFFFFF; --surface-2:#DFE7DD;
+  --text:#16201A; --text-2:#556157; --text-3:#8A968B;
+  --line:rgba(22,32,26,.10); --line-2:rgba(22,32,26,.20);
+  --accent:#1F7A4C; --accent-2:#59A85E; --on-accent:#FFFFFF;
+  --c2:#C08A2E; --c3:#2E6FA8; --c4:#B0524A;
+  --scrim:rgba(18,28,22,.36);
+  --shadow-card:0 1px 2px rgba(25,45,32,.06);
+  --shadow-pop:0 14px 34px rgba(25,45,32,.18);
+  --shadow-head:0 6px 18px rgba(25,45,32,.08);
+  --edge:inset 0 1px 0 rgba(255,255,255,.9);
+  --glow:rgba(31,122,76,.24);
+  --danger:#B33A3A; --danger-bg:rgba(179,58,58,.09); --danger-line:rgba(179,58,58,.28);
+  --paper-a:#FFFFFF; --paper-b:#DEE6DC; --paper-text:#16201A; --paper-sub:#7E8A80; --paper-margin:rgba(179,58,58,.26);
+}
+
+/* ---- Midnight: deep indigo, electric cyan and violet. ---- */
+[data-theme="midnight"]{
+  color-scheme:dark;
+  --bg:#0A1020; --surface:#141C31; --surface-2:#1D2842;
+  --text:#EAF0FF; --text-2:#8894B4; --text-3:#5A6584;
+  --line:rgba(180,205,255,.10); --line-2:rgba(180,205,255,.20);
+  --accent:#3DD5F3; --accent-2:#8B7BFF; --on-accent:#071021;
+  --c2:#FF7BA9; --c3:#57E39B; --c4:#FFC670;
+  --scrim:rgba(4,8,18,.66);
+  --shadow-card:none;
+  --shadow-pop:0 14px 34px rgba(0,0,0,.58);
+  --shadow-head:0 6px 18px rgba(0,0,0,.45);
+  --edge:inset 0 1px 0 rgba(255,255,255,.06);
+  --glow:rgba(61,213,243,.28);
+  --danger:#FF7B8F; --danger-bg:rgba(255,123,143,.11); --danger-line:rgba(255,123,143,.32);
+  --paper-a:#F4F6FB; --paper-b:#DCE2EE; --paper-text:#141C31; --paper-sub:#7C87A0; --paper-margin:rgba(200,90,110,.30);
+}
+
+/* ---- Ink: the original dark. Kept for night reading. ---- */
+[data-theme="ink"]{
+  color-scheme:dark;
+  --bg:#0C0E16; --surface:#151A29; --surface-2:#1D2436;
+  --text:#EDF0F8; --text-2:#858CA6; --text-3:#5B6280;
+  --line:rgba(255,255,255,.075); --line-2:rgba(255,255,255,.14);
+  --accent:#7FD1FF; --accent-2:#B79BFF; --on-accent:#0C0E16;
+  --c2:#FF9BB3; --c3:#6EE7A8; --c4:#FFC46B;
+  --shadow-head:0 6px 18px rgba(0,0,0,.4);
+  --edge:inset 0 1px 0 rgba(255,255,255,.05);
+  --scrim:rgba(6,7,12,.6);
+  --shadow-card:none;
+  --shadow-pop:0 12px 30px rgba(0,0,0,.5);
+  --glow:rgba(127,209,255,.28);
+  --danger:#FF9BB3; --danger-bg:rgba(255,120,140,.10); --danger-line:rgba(255,120,140,.30);
+  --paper-a:#F6F2E6; --paper-b:#E2DAC6; --paper-text:#25242E; --paper-sub:#8A7F63; --paper-margin:rgba(200,80,80,.32);
+}
+
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+/* The document itself never scrolls. On iOS a position:fixed bar detaches from
+   the bottom edge during rubber-band overscroll and when the keyboard opens, so
+   the nav is a flex child of a fixed shell instead — it has no way to move. */
+html,body{margin:0;height:100%;overflow:hidden;overscroll-behavior:none}
+body{position:fixed;top:0;left:0;right:0;bottom:0;width:100%}
+body{
+  font-family:var(--f);
+  -webkit-text-size-adjust:100%;text-size-adjust:100%;
+  background:var(--bg);
+  color:var(--text);
+  font-size:14px;
+  line-height:1.45;
+  -webkit-font-smoothing:antialiased;
+  overscroll-behavior-y:none;
+  text-rendering:optimizeLegibility;
+}
+/* ambient ink wash — the only ornament on the page */
+body::before{
+  content:"";position:fixed;inset:0;pointer-events:none;z-index:0;
+  background:
+    radial-gradient(120% 60% at 12% -8%, color-mix(in srgb,var(--accent) 12%,transparent), transparent 60%),
+    radial-gradient(100% 55% at 92% 4%, color-mix(in srgb,var(--accent-2) 11%,transparent), transparent 62%),
+    radial-gradient(140% 70% at 50% 108%, color-mix(in srgb,var(--c2) 8%,transparent), transparent 65%);
+}
+button,input,textarea,select{font:inherit;color:inherit}
+button{background:none;border:0;padding:0;cursor:pointer;touch-action:manipulation}
+button,.topbar,.chips,.nav,.lens,.dow,.wgrid .wh{
+  -webkit-user-select:none;user-select:none;-webkit-touch-callout:none;
+}
+/* Written content stays selectable — you may want to copy your own words out. */
+.page-body,.page-title,.det .block p,.ev .d{-webkit-user-select:text;user-select:text}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:6px}
+
+/* ---------- app frame ---------- */
+/* iOS reports a stale viewport height in standalone mode — a shell sized with
+   inset:0 or 100vh ends up short by the height of the Safari toolbar that is
+   no longer there, leaving the nav floating above the bottom edge. --app-h is
+   measured from window.innerHeight in JS and is authoritative; the two heights
+   above it are fallbacks for anything that lacks it. */
+#app{
+  position:fixed;top:0;left:0;right:0;
+  height:100vh;
+  height:100dvh;
+  height:var(--app-h, 100dvh);
+  z-index:1;display:flex;flex-direction:column;overflow:hidden;
+}
+
+.topbar{
+  flex:0 0 auto;position:relative;z-index:30;
+  padding:calc(var(--sat) + 10px) 14px 8px;
+  background:var(--bg);
+  box-shadow:0 1px 0 var(--line);
+  transition:box-shadow .25s;
+}
+/* A real shadow appears only once content has moved under it. */
+#app.scrolled .topbar{box-shadow:0 1px 0 var(--line), var(--shadow-head)}
+.brand{display:flex;align-items:baseline;gap:8px}
+.brand h1{
+  margin:0;font-size:19px;font-weight:700;letter-spacing:-.5px;
+  background:linear-gradient(96deg,var(--text),var(--accent) 55%,var(--accent-2));
+  -webkit-background-clip:text;background-clip:text;color:transparent;
+}
+.brand .sub{font-size:10px;color:var(--text-3);letter-spacing:.2px;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+
+/* segmented lens switcher */
+.lens{
+  display:flex;gap:2px;margin-top:10px;padding:3px;
+  background:var(--surface-2);border:1px solid var(--line);border-radius:14px;
+  box-shadow:inset 0 1px 2px rgba(0,0,0,.05);
+}
+.lens button{
+  flex:1;padding:6px 3px;border-radius:11px;font-size:10.5px;font-weight:700;white-space:nowrap;
+  color:var(--text-2);transition:color .2s, background .25s, transform .25s;
+}
+.lens button[aria-selected="true"]{
+  color:var(--on-accent);background:linear-gradient(140deg,var(--accent),var(--accent-2));
+  box-shadow:0 2px 8px var(--glow);
+}
+.lens button:active{transform:scale(.96)}
+
+/* category chips */
+.chips{flex:0 0 auto;display:flex;gap:6px;overflow-x:auto;padding:9px 14px;background:var(--bg);
+  scrollbar-width:none;-webkit-overflow-scrolling:touch}
+.chips::-webkit-scrollbar{display:none}
+.chip{
+  flex:0 0 auto;display:flex;align-items:center;gap:5px;
+  padding:5px 11px;border-radius:999px;font-size:11.5px;font-weight:700;
+  background:var(--surface);border:1px solid var(--line);color:var(--text-2);
+  transition:transform .18s,border-color .2s,color .2s;
+}
+.chip:active{transform:scale(.93)}
+.chip .dot{width:7px;height:7px;border-radius:50%;background:currentColor}
+.chip b{font-weight:700;opacity:.6}
+.chip[aria-pressed="true"]{color:var(--text);border-color:var(--line-2);background:var(--surface-2)}
+
+/* The one and only scroll container in the app. */
+main{
+  flex:1 1 auto;min-height:0;
+  overflow-y:auto;overflow-x:hidden;
+  -webkit-overflow-scrolling:touch;
+  overscroll-behavior:contain;
+  padding:10px 14px calc(88px + var(--sab));
+}
+
+/* ---------- shared bits ---------- */
+.sec-label{
+  font-size:10px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;
+  color:var(--text-3);margin:22px 0 10px;
+}
+.empty{
+  margin-top:56px;text-align:center;padding:0 24px;
+}
+.empty .mark{font-size:34px;opacity:.9}
+.empty h3{margin:12px 0 5px;font-size:16px;font-weight:700}
+.empty p{margin:0;font-size:12.5px;color:var(--text-2);line-height:1.6}
+.empty button{
+  margin-top:16px;padding:9px 18px;border-radius:999px;font-size:12.5px;font-weight:700;
+  color:var(--on-accent);background:linear-gradient(140deg,var(--accent),var(--accent-2));
+}
+
+/* event card — the unit of the whole app */
+.ev{
+  width:100%;text-align:left;display:block;position:relative;box-shadow:var(--shadow-card),var(--edge);
+  contain:content;
+  padding:10px 12px 10px 14px;border-radius:var(--r-md);
+  background:var(--surface);border:1px solid var(--line);
+  overflow:hidden;transition:transform .16s,border-color .2s;
+}
+.ev{transition:transform .14s cubic-bezier(.32,.72,0,1),border-color .2s}
+.ev:active{transform:scale(.975);border-color:var(--line-2)}
+.ev::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--c)}
+.ev .row{display:flex;align-items:center;gap:6px}
+.ev .t{font-size:13.5px;font-weight:700;letter-spacing:-.15px;flex:1;min-width:0;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ev .star{font-size:10px;flex:0 0 auto}
+.ev .meta{display:flex;align-items:center;gap:6px;margin-top:3px;font-size:10.5px;color:var(--text-3)}
+.ev .tag{color:var(--c);font-weight:700}
+.ev .d{font-size:11.5px;color:var(--text-2);margin-top:5px;line-height:1.5;
+  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.stack{display:flex;flex-direction:column;gap:7px}
+
+/* ---------- calendar lens ---------- */
+.cal-head{display:flex;align-items:center;gap:8px;margin:14px 0 10px}
+.cal-head .m{flex:1;font-size:16px;font-weight:700;letter-spacing:-.3px}
+.cal-head .m span{color:var(--text-3);font-weight:400}
+.nav-btn{
+  width:30px;height:30px;border-radius:10px;background:var(--surface);
+  border:1px solid var(--line);display:grid;place-items:center;font-size:13px;color:var(--text-2);
+}
+.nav-btn:active{transform:scale(.9)}
+.today-btn{padding:6px 11px;border-radius:10px;background:var(--surface);border:1px solid var(--line);
+  font-size:10.5px;font-weight:700;color:var(--text-2)}
+
+.dow{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;margin-bottom:4px}
+.dow span{text-align:center;font-size:9px;font-weight:700;color:var(--text-3);letter-spacing:.8px;
+  padding-bottom:2px}
+.grid{display:grid;grid-template-columns:repeat(7,1fr);gap:3px}
+.cell{
+  position:relative;min-height:50px;padding:4px 3px 3px;border-radius:10px;
+  background:transparent;border:1px solid transparent;text-align:left;
+  display:flex;flex-direction:column;gap:2px;overflow:hidden;
+  transition:border-color .18s,background .18s;
+}
+/* Only days that hold something get a surface — an empty grid should read as
+   empty, not as forty-two identical cards. */
+.cell.has{background:var(--surface);border-color:var(--line);box-shadow:var(--shadow-card)}
+.cell.out{opacity:.4}
+.cell.sel{border-color:var(--accent);background:color-mix(in srgb,var(--accent) 7%,transparent)}
+.cell .n{font-size:10.5px;font-weight:700;color:var(--text-2);padding-left:2px}
+.cell.today .n{
+  color:var(--on-accent);background:var(--accent);border-radius:5px;
+  width:15px;height:15px;display:grid;place-items:center;padding:0;font-size:9px;
+}
+.pill{
+  font-size:8.5px;line-height:1.3;font-weight:700;padding:1.5px 3px;border-radius:3px;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+  background:color-mix(in srgb,var(--c) 22%,transparent);color:var(--c);
+}
+.more{font-size:8px;color:var(--text-3);padding-left:3px;font-weight:700}
+
+.day-group{margin-top:16px}
+.day-group h4{
+  margin:0 0 7px;font-size:11px;font-weight:700;color:var(--text-2);
+  display:flex;align-items:center;gap:7px;
+}
+.day-group h4::after{content:"";flex:1;height:1px;background:var(--line)}
+.day-group.flash > h4{color:var(--accent)}
+
+/* ---------- journey tree lens ---------- */
+.yr{margin-top:22px;content-visibility:auto;contain-intrinsic-size:auto 320px}
+.yr-head{display:flex;align-items:center;gap:10px;width:100%;text-align:left}
+.yr-head .y{font-size:26px;font-weight:700;letter-spacing:-1px;
+  background:linear-gradient(120deg,var(--text),var(--text-3));
+  -webkit-background-clip:text;background-clip:text;color:transparent}
+.yr-head .c{font-size:10px;color:var(--text-3);font-weight:700}
+.yr-head .caret{margin-left:auto;font-size:11px;color:var(--text-3);transition:transform .25s}
+.yr[data-open="false"] .caret{transform:rotate(-90deg)}
+.yr[data-open="false"] .yr-body{display:none}
+
+.mo{position:relative;padding-left:20px;margin-top:12px}
+.mo::before{content:"";position:absolute;left:5px;top:6px;bottom:2px;width:1.5px;
+  background:linear-gradient(to bottom,var(--line-2),transparent)}
+.mo-label{position:relative;font-size:11px;font-weight:700;color:var(--text-2);margin-bottom:8px}
+.mo-label::before{
+  content:"";position:absolute;left:-18px;top:5px;width:9px;height:9px;border-radius:50%;
+  background:var(--surface);border:2px solid var(--line-2);
+}
+.leaf{position:relative}
+.leaf::before{
+  content:"";position:absolute;left:-15px;top:20px;width:11px;height:1.5px;background:var(--line);
+}
+
+/* ---------- milestone map lens ---------- */
+.map-toggle{display:flex;gap:6px;margin:14px 0 4px}
+.map-toggle button{
+  padding:5px 11px;border-radius:999px;font-size:11px;font-weight:700;
+  background:var(--surface);border:1px solid var(--line);color:var(--text-2);
+}
+.map-toggle button[aria-pressed="true"]{color:var(--text);border-color:var(--line-2);background:var(--surface-2)}
+
+.trail{position:relative;padding-top:6px}
+.checkpoint{
+  display:flex;align-items:center;gap:9px;margin:14px 0 4px;
+}
+.checkpoint .badge{
+  font-size:11px;font-weight:700;padding:4px 12px;border-radius:999px;
+  background:var(--surface-2);border:1px dashed var(--line-2);color:var(--text);
+}
+.checkpoint .rule{flex:1;height:1px;background:repeating-linear-gradient(90deg,var(--line-2) 0 3px,transparent 3px 7px)}
+
+.link{display:block;height:34px;width:24px}
+.link path{fill:none;stroke:var(--line-2);stroke-width:1.5;stroke-dasharray:2 4.5;stroke-linecap:round}
+
+.stop{position:relative;padding-left:30px}
+.stop .pin{
+  position:absolute;left:2px;top:14px;width:17px;height:17px;border-radius:50%;
+  background:var(--surface);border:2px solid var(--c);display:grid;place-items:center;
+}
+.stop .pin i{width:5px;height:5px;border-radius:50%;background:var(--c);display:block}
+.stop .pin.big{box-shadow:0 0 0 4px color-mix(in srgb,var(--c) 16%,transparent)}
+
+/* ---------- bottom nav ---------- */
+/* Section navigation sits in the header, between the lens bar and the filters.
+   Nothing anchored to the bottom edge means nothing that iOS can float. */
+.nav{
+  flex:0 0 auto;position:relative;z-index:40;
+  display:grid;grid-template-columns:repeat(5,1fr);gap:3px;
+  margin-top:8px;
+}
+.nav button{display:flex;flex-direction:column;align-items:center;gap:3px;justify-content:center;
+  padding:7px 2px 6px;border-radius:12px;
+  font-size:8.5px;font-weight:700;color:var(--text-3);letter-spacing:-.1px;
+  transition:color .2s,background .2s;}
+.nav button svg{width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:1.7;
+  stroke-linecap:round;stroke-linejoin:round}
+.nav button[aria-current="page"]{
+  color:var(--accent);
+  background:color-mix(in srgb,var(--accent) 11%,transparent);
+}
+.nav button:active{transform:scale(.94)}
+.srow:active{transform:scale(.99)}
+.cell:active{transform:scale(.94)}
+.cell{transition:border-color .18s,background .18s,transform .14s}
+.nav button{position:relative}
+
+/* floating record button — only on Timeline */
+.fab-add{
+  position:absolute;right:15px;bottom:calc(16px + var(--sab));z-index:41;
+  width:54px;height:54px;border-radius:20px;display:grid;place-items:center;
+  background:linear-gradient(140deg,var(--accent),var(--accent-2));color:var(--on-accent);
+  box-shadow:0 10px 26px var(--glow);
+  transition:transform .2s,opacity .2s;
+}
+.fab-add svg{width:23px;height:23px;stroke:currentColor;fill:none;stroke-width:2.6;stroke-linecap:round}
+.fab-add:active{transform:scale(.9) rotate(90deg)}
+.fab-add[hidden]{display:none}
+
+/* work-in-progress screens */
+.wip{margin-top:26px;text-align:center;padding:0 6px}
+.wip .glyph{width:56px;height:56px;margin:0 auto;border-radius:20px;display:grid;place-items:center;
+  font-size:24px;background:var(--surface);border:1px solid var(--line-2);color:var(--accent)}
+.wip h3{margin:14px 0 3px;font-size:18px;font-weight:700;letter-spacing:-.3px}
+.wip .tagline{margin:0;font-size:12.5px;color:var(--text-2);line-height:1.6}
+.wip .flag{display:inline-block;margin-top:12px;padding:5px 13px;border-radius:999px;
+  font-size:10px;font-weight:700;letter-spacing:1.2px;text-transform:uppercase;
+  color:var(--accent-2);background:color-mix(in srgb,var(--accent-2) 13%,transparent);border:1px dashed color-mix(in srgb,var(--accent-2) 38%,transparent)}
+.wip ul{list-style:none;margin:22px 0 0;padding:0;text-align:left;display:flex;flex-direction:column;gap:7px}
+.wip li{display:flex;gap:10px;align-items:flex-start;padding:11px 13px;border-radius:var(--r-md);
+  background:var(--surface);border:1px solid var(--line);font-size:12px;color:var(--text-2);line-height:1.5}
+.wip li b{color:var(--text-3);font-size:10px;flex:0 0 auto;padding-top:1px}
+
+/* ---------- sheets ---------- */
+.scrim{position:fixed;inset:0;z-index:60;background:var(--scrim);
+  backdrop-filter:blur(3px);-webkit-backdrop-filter:blur(3px);
+  opacity:0;pointer-events:none;transition:opacity .28s}
+.scrim.on{opacity:1;pointer-events:auto}
+.sheet{will-change:transform}
+.sheet{
+  position:fixed;left:0;right:0;bottom:0;z-index:70;
+  box-shadow:var(--shadow-pop);max-height:calc(92dvh - var(--kb, 0px));overflow-y:auto;-webkit-overflow-scrolling:touch;
+  overscroll-behavior:contain;
+  background:var(--surface);border-top:1px solid var(--line-2);
+  border-radius:var(--r-xl) var(--r-xl) 0 0;
+  padding:8px 18px calc(24px + var(--sab) + var(--kb, 0px));
+  transform:translateY(101%);transition:transform .34s cubic-bezier(.32,.72,0,1);
+}
+.sheet.on{transform:translateY(0)}
+.grab{width:34px;height:4px;border-radius:99px;background:var(--line-2);margin:0 auto 12px}
+.sheet h2{margin:0 0 2px;font-size:17px;font-weight:700;letter-spacing:-.3px}
+.sheet .hint{margin:0 0 16px;font-size:11px;color:var(--text-3)}
+
+.field{margin-bottom:13px}
+.field label{display:block;font-size:10px;font-weight:700;letter-spacing:1px;
+  text-transform:uppercase;color:var(--text-3);margin-bottom:6px}
+.field input[type=text],.field input[type=date],.field textarea{
+  width:100%;padding:11px 12px;border-radius:var(--r-md);
+  background:var(--bg);border:1px solid var(--line);color:var(--text);
+  font-size:16px; /* 16px stops iOS zoom-on-focus */
+  transition:border-color .2s;
+}
+.field textarea{resize:none;line-height:1.5}
+.field input:focus,.field textarea:focus{outline:none;border-color:var(--accent)}
+.field input::placeholder,.field textarea::placeholder{color:var(--text-3);opacity:.75}
+
+.cat-pick{display:flex;flex-wrap:wrap;gap:6px}
+.cat-pick button{
+  display:flex;align-items:center;gap:6px;padding:7px 12px;border-radius:999px;
+  font-size:12px;font-weight:700;background:var(--bg);border:1px solid var(--line);color:var(--text-2);
+}
+.cat-pick button .dot{width:8px;height:8px;border-radius:50%;background:var(--c)}
+.cat-pick button[aria-pressed="true"]{color:var(--text);border-color:var(--c);
+  background:color-mix(in srgb,var(--c) 13%,transparent)}
+.cat-pick .new{border-style:dashed}
+
+.newcat{display:none;gap:7px;margin-top:9px;align-items:center}
+.newcat.on{display:flex}
+.newcat input{flex:1;padding:9px 11px;border-radius:12px;background:var(--bg);
+  border:1px solid var(--line);font-size:16px}
+.swatches{display:flex;gap:5px;margin-top:8px;flex-wrap:wrap}
+.swatches button{width:22px;height:22px;border-radius:50%;border:2px solid transparent}
+.swatches button[aria-pressed="true"]{border-color:var(--text)}
+
+.toggle-row{display:flex;align-items:center;justify-content:space-between;gap:12px;
+  padding:11px 13px;border-radius:var(--r-md);background:var(--bg);border:1px solid var(--line)}
+.toggle-row .tt{font-size:12.5px;font-weight:700}
+.toggle-row .ts{font-size:10.5px;color:var(--text-3);margin-top:1px}
+.switch{width:44px;height:26px;border-radius:99px;background:var(--surface-2);position:relative;
+  flex:0 0 auto;transition:background .25s;border:1px solid var(--line)}
+.switch i{position:absolute;top:2px;left:2px;width:20px;height:20px;border-radius:50%;
+  background:var(--text-2);transition:transform .25s,background .25s}
+.switch[aria-pressed="true"]{background:linear-gradient(140deg,var(--accent),var(--accent-2));border-color:transparent}
+.switch[aria-pressed="true"] i{transform:translateX(18px);background:var(--on-accent)}
+
+.btn-row{display:flex;gap:8px;margin-top:18px}
+.btn{flex:1;padding:13px;border-radius:var(--r-md);font-size:13.5px;font-weight:700;text-align:center}
+.btn-primary{color:var(--on-accent);background:linear-gradient(140deg,var(--accent),var(--accent-2))}
+.btn-ghost{background:var(--bg);border:1px solid var(--line);color:var(--text-2)}
+.btn-danger{background:var(--danger-bg);border:1px solid var(--danger-line);color:var(--danger)}
+.btn:active{transform:scale(.98)}
+
+/* detail sheet */
+.det-cat{display:inline-flex;align-items:center;gap:6px;padding:4px 11px;border-radius:999px;
+  font-size:11px;font-weight:700;background:color-mix(in srgb,var(--c) 15%,transparent);color:var(--c)}
+.det-date{font-size:11.5px;color:var(--text-3);margin-top:9px}
+.det h2{margin:8px 0 0;font-size:20px;line-height:1.3}
+.det .block{margin-top:16px}
+.det .block h5{margin:0 0 5px;font-size:9.5px;letter-spacing:1.2px;text-transform:uppercase;color:var(--text-3)}
+.det .block p{margin:0;font-size:13px;color:var(--text);line-height:1.6;white-space:pre-wrap;opacity:.9}
+
+/* settings rows */
+.srow{display:flex;align-items:center;gap:12px;width:100%;text-align:left;box-shadow:var(--shadow-card),var(--edge);
+  transition:transform .14s cubic-bezier(.32,.72,0,1);
+  padding:13px;border-radius:var(--r-md);background:var(--surface);border:1px solid var(--line);margin-bottom:7px}
+.srow .ic{width:30px;height:30px;border-radius:9px;background:var(--surface-2);display:grid;place-items:center;font-size:14px;flex:0 0 auto}
+.srow .tt{font-size:12.5px;font-weight:700}
+.srow .ts{font-size:10.5px;color:var(--text-3);margin-top:1px}
+.stat-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:7px;margin-bottom:14px}
+.stat{padding:13px 10px;border-radius:var(--r-md);background:var(--surface);border:1px solid var(--line);
+  box-shadow:var(--shadow-card),var(--edge);text-align:center}
+.stat b{display:block;font-size:20px;font-weight:700;letter-spacing:-.5px}
+.stat span{font-size:9.5px;color:var(--text-3);font-weight:700;letter-spacing:.6px;text-transform:uppercase}
+
+.toast{
+  position:fixed;left:50%;bottom:calc(84px + var(--sab));transform:translate(-50%,14px);
+  z-index:90;padding:9px 16px;border-radius:999px;font-size:12px;font-weight:700;
+  background:var(--surface-2);border:1px solid var(--line-2);color:var(--text);
+  opacity:0;pointer-events:none;transition:opacity .25s,transform .25s;white-space:nowrap;
+  max-width:88vw;overflow:hidden;text-overflow:ellipsis;
+}
+.toast.on{opacity:1;transform:translate(-50%,0)}
+
+/* ---------- search ---------- */
+.icon-btn{
+  width:30px;height:30px;border-radius:10px;background:var(--surface);border:1px solid var(--line);
+  display:grid;place-items:center;color:var(--text-2);margin-left:auto;flex:0 0 auto;
+  transition:background .2s,color .2s;
+}
+.icon-btn svg{width:15px;height:15px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round}
+.icon-btn[aria-pressed="true"]{color:var(--bg);border-color:transparent;
+  background:linear-gradient(140deg,var(--accent),var(--accent-2))}
+.search-row{display:none;margin-top:10px;position:relative}
+.search-row.on{display:block}
+.search-row input{
+  width:100%;padding:9px 34px 9px 12px;border-radius:13px;background:var(--surface);
+  border:1px solid var(--line);color:var(--text);font-size:16px;
+}
+.search-row input:focus{outline:none;border-color:var(--accent)}
+.search-row input::placeholder{color:var(--text-3);opacity:.75}
+.search-row .x{position:absolute;right:5px;top:50%;transform:translateY(-50%);
+  width:26px;height:26px;border-radius:8px;color:var(--text-3);display:grid;place-items:center;font-size:14px}
+mark{background:color-mix(in srgb,var(--accent) 28%,transparent);color:var(--text);border-radius:3px;padding:0 1px}
+
+/* ---------- on this day ---------- */
+.otd{
+  padding:12px 13px;border-radius:var(--r-lg);margin:14px 0 2px;border:1px solid var(--line-2);
+  background:linear-gradient(150deg,color-mix(in srgb,var(--accent) 11%,transparent),color-mix(in srgb,var(--accent-2) 7%,transparent));
+}
+.otd h4{margin:0;font-size:10px;font-weight:700;letter-spacing:1.3px;text-transform:uppercase;color:var(--accent)}
+.otd .sub{font-size:10.5px;color:var(--text-2);margin:3px 0 10px}
+
+/* ---------- insights ---------- */
+.bars{display:flex;align-items:flex-end;gap:4px;height:76px;padding:10px 11px 8px;
+  background:var(--surface);border:1px solid var(--line);border-radius:var(--r-md)}
+.bars .b{flex:1;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;gap:4px;height:100%}
+.bars .b i{width:100%;border-radius:3px 3px 1px 1px;min-height:2px;display:block;opacity:.8;
+  background:linear-gradient(to top,var(--accent),var(--accent-2))}
+.bars .b span{font-size:7.5px;color:var(--text-3);font-weight:700;letter-spacing:.2px}
+.bars .b.now i{opacity:1;box-shadow:0 0 12px var(--glow)}
+.split{display:flex;height:10px;border-radius:99px;overflow:hidden;background:var(--surface);border:1px solid var(--line)}
+.split i{display:block;height:100%}
+.legend{display:flex;flex-wrap:wrap;gap:9px;margin-top:9px}
+.legend span{display:flex;align-items:center;gap:5px;font-size:10px;color:var(--text-2);font-weight:700}
+.legend b{width:7px;height:7px;border-radius:50%;display:block}
+.note{font-size:10.5px;color:var(--text-3);margin:8px 0 0;line-height:1.5}
+
+/* ---------- Timeline: the year, month by month ---------- */
+.yr-nav{display:flex;align-items:center;gap:8px;margin:6px 0 12px}
+.yr-nav .yv{flex:1;text-align:center;font-size:19px;font-weight:700;letter-spacing:-.5px}
+.yr-nav .yv span{display:block;font-size:10px;color:var(--text-3);font-weight:400;
+  letter-spacing:.3px;margin-top:1px}
+
+/* Twelve identically sized tiles. Content never changes their height, so the
+   grid cannot skew as events are added — the flaw in the earlier ribbon. */
+.mgrid{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-bottom:6px}
+.mtile{
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;
+  height:52px;border-radius:12px;background:transparent;
+  border:1px solid var(--line);color:var(--text-3);
+  transition:transform .16s,background .2s,border-color .2s,color .2s;
+}
+.mtile:active{transform:scale(.95)}
+.mtile .mname{font-size:11.5px;font-weight:700;letter-spacing:-.2px}
+.mtile .mcount{font-size:9px;font-weight:700;opacity:.75}
+.mtile.has{
+  color:var(--text);border-color:transparent;
+  background:color-mix(in srgb,var(--c) 15%,transparent);
+  box-shadow:var(--shadow-card);
+}
+.mtile.has .mcount{color:var(--c);opacity:1}
+.mtile.now{border-color:var(--accent)}
+
+.mblock{margin-top:20px;scroll-margin-top:8px}
+.mhead{display:flex;align-items:center;gap:8px;margin-bottom:9px}
+.mhead .mbar{width:3px;height:15px;border-radius:2px;background:var(--c);flex:0 0 auto}
+.mhead h4{margin:0;font-size:14px;font-weight:700;letter-spacing:-.3px;flex:1}
+.mhead .mnum{font-size:10px;font-weight:700;color:var(--text-3);
+  padding:2px 8px;border-radius:999px;background:var(--surface-2)}
+
+/* ---------- Journals: the paper page ---------- */
+.book{margin-top:14px;perspective:1400px}
+.page{
+  position:relative;border-radius:6px 14px 14px 6px;padding:18px 17px 34px 26px;
+  min-height:340px;transform-origin:left center;
+  color:var(--paper-text);
+  background:
+    linear-gradient(90deg, rgba(0,0,0,.13) 0 6px, rgba(0,0,0,.03) 6px 13px, transparent 13px),
+    repeating-linear-gradient(var(--paper-a) 0 26px, var(--paper-b) 26px 27px);
+  box-shadow:var(--shadow-pop), inset -12px 0 22px -18px rgba(0,0,0,.4);
+}
+.page::before{content:"";position:absolute;left:20px;top:0;bottom:0;width:1px;background:var(--paper-margin)}
+.page-date{font-size:10px;font-weight:700;letter-spacing:1.1px;text-transform:uppercase;color:var(--paper-sub)}
+.page-title{margin:4px 0 0;font-size:19px;font-weight:700;line-height:26px;color:var(--paper-text);letter-spacing:-.3px}
+.page-body{margin:8px 0 0;font-size:14px;line-height:26px;white-space:pre-wrap;color:var(--paper-text);opacity:.85;word-break:break-word}
+.page-foot{position:absolute;left:26px;right:17px;bottom:12px;display:flex;justify-content:space-between;
+  font-size:9.5px;color:var(--paper-sub);font-weight:700}
+.page-foot button{color:var(--paper-sub);font-size:9.5px;font-weight:700}
+.page.blank{display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;color:var(--paper-sub)}
+.page.blank .pen{font-size:26px;opacity:.5}
+.page.blank p{font-size:12.5px;margin:8px 0 0;max-width:220px;line-height:1.6}
+
+@keyframes turnNext{from{transform:rotateY(-26deg);opacity:.35}to{transform:none;opacity:1}}
+@keyframes turnPrev{from{transform:rotateY(26deg);opacity:.35}to{transform:none;opacity:1}}
+.page.next{animation:turnNext .38s cubic-bezier(.3,.8,.3,1)}
+.page.prev{animation:turnPrev .38s cubic-bezier(.3,.8,.3,1)}
+
+.flipbar{display:flex;align-items:center;gap:8px;margin-top:12px}
+.flipbar button{
+  flex:1;padding:11px;border-radius:var(--r-md);font-size:12px;font-weight:700;
+  background:var(--surface);border:1px solid var(--line);color:var(--text-2);
+}
+.flipbar button:disabled{opacity:.35}
+.flipbar button:active:not(:disabled){transform:scale(.97)}
+.flipbar .pos{flex:0 0 auto;font-size:10.5px;color:var(--text-3);font-weight:700;min-width:52px;text-align:center}
+
+/* ---------- Journals: milestone boxes ---------- */
+.stones{display:grid;grid-template-columns:repeat(2,1fr);gap:7px;margin-top:12px}
+.stone{
+  text-align:left;padding:10px;border-radius:var(--r-md);min-width:0;contain:content;
+  background:var(--surface);border:1px solid var(--line);box-shadow:var(--shadow-card),var(--edge);
+  transition:transform .16s,border-color .2s;
+}
+.stone:active{transform:scale(.97);border-color:var(--line-2)}
+.stone .dt{font-size:8.5px;font-weight:700;letter-spacing:.5px;color:var(--c);text-transform:uppercase}
+.stone .ti{font-size:12px;font-weight:700;margin-top:3px;line-height:1.35;
+  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.stone .sn{font-size:10px;color:var(--text-3);margin-top:3px;line-height:1.4;
+  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+
+/* ---------- Habits: the ring ---------- */
+.ringwrap{display:flex;flex-direction:column;align-items:center;margin:16px 0 4px}
+.ring{width:186px;height:186px;transform:rotate(-90deg)}
+.ring circle{fill:none;stroke-linecap:round}
+.ring .track{stroke:var(--surface-2)}
+.ringcap{margin-top:-116px;margin-bottom:78px;text-align:center;pointer-events:none}
+.ringcap b{display:block;font-size:38px;font-weight:700;letter-spacing:-2px;line-height:1}
+.ringcap b span{font-size:17px;color:var(--text-3);letter-spacing:-.5px}
+.ringcap em{font-style:normal;font-size:10px;font-weight:700;letter-spacing:1.2px;
+  text-transform:uppercase;color:var(--text-3);display:block;margin-top:5px}
+.ringnote{text-align:center;font-size:12px;color:var(--text-2);margin:2px 0 0;line-height:1.5}
+
+/* ---------- Habits: a row you can tick ---------- */
+.hrow{display:flex;align-items:center;gap:11px;padding:10px 11px;border-radius:var(--r-md);
+  background:var(--surface);border:1px solid var(--line);box-shadow:var(--shadow-card),var(--edge);
+  transition:border-color .2s,background .2s}
+.hrow.done{border-color:color-mix(in srgb,var(--c) 45%,transparent);
+  background:color-mix(in srgb,var(--c) 9%,var(--surface))}
+.tick{width:32px;height:32px;border-radius:50%;flex:0 0 auto;display:grid;place-items:center;
+  border:2px solid color-mix(in srgb,var(--c) 55%,transparent);color:transparent;
+  font-size:15px;font-weight:700;transition:transform .18s,background .2s,color .2s}
+.tick:active{transform:scale(.85)}
+.hrow.done .tick{background:var(--c);border-color:var(--c);color:#FFFFFF}
+.hmeta{flex:1;min-width:0;text-align:left}
+.hmeta .hn{font-size:13.5px;font-weight:700;letter-spacing:-.15px;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.hmeta .hs{font-size:10.5px;color:var(--text-3);margin-top:2px;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.hmeta .hs b{color:var(--c);font-weight:700}
+.hgo{flex:0 0 auto;color:var(--text-3);font-size:14px;padding:4px 2px}
+
+/* ---------- Habits: weekly grid ---------- */
+.wk-head{display:flex;align-items:center;gap:8px;margin:14px 0 10px}
+.wk-head .wv{flex:1;font-size:13.5px;font-weight:700;letter-spacing:-.2px}
+.wk-head .wv span{display:block;font-size:10px;color:var(--text-3);font-weight:400;margin-top:1px}
+.wgrid{display:grid;grid-template-columns:1fr repeat(7,23px) 18px;gap:3px;align-items:center}
+.wgrid .wh{font-size:8.5px;font-weight:700;color:var(--text-3);text-align:center;line-height:1.25}
+.wgrid .wh i{display:block;font-style:normal;font-size:9.5px;color:var(--text-2)}
+.wgrid .wh.now i{color:var(--accent)}
+.wgrid .wname{font-size:11.5px;font-weight:700;overflow:hidden;text-overflow:ellipsis;
+  white-space:nowrap;padding:7px 6px 7px 0;min-width:0;text-align:left}
+.wgrid .wname i{display:block;font-style:normal;font-size:9px;color:var(--text-3);font-weight:700}
+.wcell{width:23px;height:23px;border-radius:7px;background:var(--surface);border:1px solid var(--line);
+  transition:transform .16s,background .2s}
+.wcell:active{transform:scale(.84)}
+.wcell.on{background:var(--c);border-color:var(--c)}
+.wcell.off{opacity:.3;border-style:dashed;background:transparent}
+.wcell.future{opacity:.2}
+.wbadge{display:grid;place-items:center}
+.perfect{font-size:11px;color:var(--c);line-height:1}
+
+.wstats{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-top:20px}
+.ws{text-align:center;padding:12px 4px;border-radius:var(--r-md);
+  background:var(--surface);border:1px solid var(--line);box-shadow:var(--shadow-card),var(--edge)}
+.ws b{display:block;font-size:24px;font-weight:700;letter-spacing:-1.2px;line-height:1}
+.ws b span{font-size:11px;letter-spacing:0;opacity:.65}
+.ws em{font-style:normal;display:block;font-size:8.5px;font-weight:700;letter-spacing:.5px;
+  text-transform:uppercase;color:var(--text-3);margin-top:5px}
+
+/* ---------- Habits: completion calendar ---------- */
+.hcal .cell{min-height:46px;align-items:center;justify-content:flex-start;gap:4px;padding-top:5px}
+.dial{width:19px;height:19px;border-radius:50%;display:grid;place-items:center;
+  background:conic-gradient(var(--accent) calc(var(--p) * 1%), var(--surface-2) 0)}
+.dial i{width:12px;height:12px;border-radius:50%;background:var(--surface);display:block;
+  font-size:7px;font-style:normal;color:var(--text-2);display:grid;place-items:center;font-weight:700}
+.dial.full{background:linear-gradient(140deg,var(--accent),var(--accent-2))}
+.dial.none{background:var(--surface-2)}
+
+/* ---------- Habits: day picker in the editor ---------- */
+.dow-pick{display:flex;gap:5px}
+.dow-pick button{flex:1;padding:9px 0;border-radius:10px;font-size:11px;font-weight:700;
+  background:var(--bg);border:1px solid var(--line);color:var(--text-3)}
+.dow-pick button[aria-pressed="true"]{color:var(--text);border-color:var(--c);
+  background:color-mix(in srgb,var(--c) 16%,transparent)}
+
+/* ---------- theme picker ---------- */
+.themes{display:grid;grid-template-columns:repeat(2,1fr);gap:7px}
+.theme{padding:9px;border-radius:var(--r-md);background:var(--surface);
+  border:1px solid var(--line);text-align:left;box-shadow:var(--shadow-card);transition:transform .16s}
+.theme:active{transform:scale(.97)}
+.theme[aria-pressed="true"]{border-color:var(--accent);box-shadow:0 0 0 1.5px var(--accent)}
+.theme .sw{display:flex;gap:3px;margin-bottom:8px;height:26px}
+.theme .sw i{flex:1;border-radius:6px;display:block;border:1px solid var(--line)}
+.theme .tn{font-size:12px;font-weight:700}
+.theme .td{font-size:9.5px;color:var(--text-3);margin-top:1px;line-height:1.35}
+
+/* entrance motion */
+@keyframes rise{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+.anim > *{animation:rise .3s cubic-bezier(.22,.9,.3,1) backwards}
+.anim > *:nth-child(1){animation-delay:0s}
+.anim > *:nth-child(2){animation-delay:.03s}
+.anim > *:nth-child(3){animation-delay:.06s}
+.anim > *:nth-child(4){animation-delay:.09s}
+.anim > *:nth-child(n+5){animation-delay:.12s}
+
+@media (prefers-reduced-motion:reduce){
+  *{animation:none!important;transition-duration:.01ms!important}
+}
+</style>
+</head>
+<body>
+
+<div id="app">
+  <header class="topbar">
+    <div class="brand">
+      <h1>Chrono Studio</h1>
+      <span class="sub" id="brandSub">on this device only</span>
+      <button class="icon-btn" id="searchBtn" aria-pressed="false" aria-label="Search events">
+        <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M16.5 16.5 21 21"/></svg>
+      </button>
+      <button class="icon-btn" id="exportBtn" style="margin-left:6px" aria-label="Export this section">
+        <svg viewBox="0 0 24 24"><path d="M12 4v11m0 0 4-4m-4 4-4-4"/><path d="M5 19h14"/></svg>
+      </button>
+    </div>
+    <div class="search-row" id="searchRow">
+      <input id="q" type="text" aria-label="Search your events" placeholder="Search titles, notes, people, places…" autocomplete="off" autocapitalize="off" spellcheck="false">
+      <button class="x" id="qClear" aria-label="Clear search">✕</button>
+    </div>
+    <div class="lens" id="lens" role="tablist"></div>
+    <nav class="nav">
+    <button data-tab="timeline" aria-current="page">
+      <svg viewBox="0 0 24 24"><path d="M12 8v4l2.5 2.5"/><circle cx="12" cy="12" r="9"/></svg>
+      Timeline
+    </button>
+    <button data-tab="diary">
+      <svg viewBox="0 0 24 24"><path d="M6 4h11a2 2 0 0 1 2 2v14H8a2 2 0 0 1-2-2z"/><path d="M6 16h13"/><path d="M10 8h5"/></svg>
+      Diary
+    </button>
+    <button data-tab="manifest">
+      <svg viewBox="0 0 24 24"><path d="M12 3.5 14.2 9l5.8.3-4.5 3.7 1.6 5.6L12 15.6 6.9 18.6l1.6-5.6L4 9.3 9.8 9z"/></svg>
+      Manifest
+    </button>
+    <button data-tab="habit">
+      <svg viewBox="0 0 24 24"><rect x="4" y="5" width="16" height="15" rx="2.5"/><path d="M4 10h16M8 3v3M16 3v3"/><path d="M9.5 15l1.8 1.8 3.4-3.6"/></svg>
+      Habits
+    </button>
+    <button data-tab="library">
+      <svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h10"/><circle cx="17" cy="18" r="2.4"/></svg>
+      Library
+    </button>
+  </nav>
+  </header>
+
+  <div class="chips" id="chips"></div>
+  <main id="view"></main>
+
+  <button class="fab-add" id="fabAdd" aria-label="Record an event">
+    <svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
+  </button>
+</div>
+
+<div class="scrim" id="scrim"></div>
+<section class="sheet" id="sheet" role="dialog" aria-modal="true"></section>
+<div class="toast" id="toast"></div>
+
+<script>
+/* ============================================================
+   Clickjacking guard. `frame-ancestors` is ignored in a meta CSP,
+   so if another origin embeds this page we cover it with a visible
+   notice — an invisible overlay is the whole point of a clickjack.
+   ============================================================ */
+(function(){
+  let framedByOther = false;
+  try { framedByOther = window.top !== window.self && !window.top.location.origin; }
+  catch(e){ framedByOther = true; }              // cross-origin access throws
+  if(!framedByOther) return;
+  document.addEventListener('DOMContentLoaded', () => {
+    const s = document.createElement('div');
+    s.setAttribute('style','position:fixed;inset:0;z-index:9999;background:#0C0E16;color:#EDF0F8;'
+      + 'display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;'
+      + 'padding:28px;text-align:center;font:400 14px/1.6 system-ui,sans-serif;'
+      + 'overflow:auto;-webkit-overflow-scrolling:touch');
+    const h = document.createElement('div');
+    h.setAttribute('style','font-size:16px;font-weight:700');
+    h.textContent = 'Chrono Studio is embedded in another site';
+    const p = document.createElement('div');
+    p.setAttribute('style','color:#858CA6;max-width:340px;font-size:12.5px');
+    p.textContent = 'Your journal is not shown inside another page. Open Chrono at its own address instead.';
+    const b = document.createElement('button');
+    b.setAttribute('style','padding:10px 18px;border-radius:999px;border:1px solid #333a52;'
+      + 'background:#151A29;color:#858CA6;font:inherit;font-size:12px');
+    b.textContent = 'I embedded this myself — continue';
+    b.addEventListener('click', () => s.remove());
+    s.append(h, p, b);
+    document.body.appendChild(s);
+  });
+})();
+</script>
+
+<script>
+/* ============================================================
+   Storage — device-only, with an in-memory fallback so the app
+   still runs in sandboxed previews where localStorage is blocked.
+
+   This origin is shared with every other project published under
+   the same account, so localStorage is a shared box. Chrono is
+   confined to its own corner of it by construction:
+
+     - Every key must begin with NS. Anything else is refused, so
+       a typo or a future bug cannot read or overwrite another
+       project's data.
+     - The store is never enumerated. No localStorage.length, no
+       .key(i), no Object.keys(localStorage) — Chrono has no way
+       to discover that another project's keys even exist.
+     - localStorage.clear() is never called. It would wipe the
+       whole origin, including everything that isn't ours.
+   ============================================================ */
+const NS = 'chrono.';
+const owned = k => typeof k === 'string' && k.startsWith(NS);
+
+const Store = (() => {
+  let live = true, mem = {};
+  try { localStorage.setItem(NS + '__probe', '1'); localStorage.removeItem(NS + '__probe'); }
+  catch(e){ live = false; }
+  return {
+    live,
+    get(k){
+      if(!owned(k)) return null;
+      try{ return live ? localStorage.getItem(k) : (mem[k] ?? null); }catch(e){ return mem[k] ?? null; }
+    },
+    set(k,v){
+      if(!owned(k)) return false;
+      try{
+        if(live){ localStorage.setItem(k,v); } else { mem[k]=v; }
+        return true;
+      }catch(e){ mem[k]=v; return false; } // quota exceeded / storage disabled mid-session
+    },
+    del(k){
+      if(!owned(k)) return;
+      try{ live ? localStorage.removeItem(k) : delete mem[k]; }catch(e){ delete mem[k]; }
+    }
+  };
+})();
+
+const K_EV = 'chrono.events.v1', K_CAT = 'chrono.categories.v1';
+
+const DEFAULT_CATS = [
+  { id:'life',   name:'Life',   color:'#3B82C4' },
+  { id:'health', name:'Health', color:'#2FA36E' },
+  { id:'career', name:'Career', color:'#D9862B' },
+  { id:'love',   name:'Love',   color:'#D1567F' }
+];
+/* Mid-tone by design: these have to stay legible as text on a light ground
+   and still read as colour on a dark one, so nothing here is a pastel or a neon. */
+const SWATCHES = ['#3B82C4','#2FA36E','#D9862B','#D1567F','#7C5CD6','#159C9C','#D1552F','#7E9E2C'];
+
+const S = {
+  events: [],
+  cats: [],
+  journals: { diary: [], manifest: [] },
+  habits: [],
+  hlog: {},
+  hWeek: new Date(),
+  hCursor: new Date(),
+  hSel: null,
+  hDraft: null,
+  theme: 'studio',
+  lens: { timeline:'calendar', diary:'calendar', manifest:'calendar', habit:'today' },
+  jCursor: { diary: new Date(), manifest: new Date() },
+  jPage: { diary: 0, manifest: 0 },
+  flipDir: 1,
+  tab: 'timeline',
+  cat: 'all',
+  cursor: new Date(),
+  selDay: null,
+  mapMode: 'milestones',
+  openYears: {},
+  query: '',
+  searchOpen: false,
+  draft: null,
+  jDraft: null
+};
+
+/* ---------- helpers ---------- */
+const $  = s => document.querySelector(s);
+const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2,7);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const MON  = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+const MON3 = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+const DOW  = ['S','M','T','W','T','F','S'];
+
+const iso = d => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+// Built at midday, not midnight: in zones where DST shifts at 00:00 a
+// midnight date can roll to the previous day and misplace an event.
+const parse = s => { const [y,m,d] = String(s).split('-').map(Number); return new Date(y, m-1, d, 12); };
+const todayISO = () => iso(new Date());
+const catOf = id => S.cats.find(c => c.id === id) || { id:'?', name:'Uncategorised', color:'#858CA6' };
+const longDate = s => { const d = parse(s); return `${d.getDate()} ${MON[d.getMonth()]} ${d.getFullYear()}`; };
+const dayLabel = s => { const d = parse(s); return `${['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'][d.getDay()]} ${d.getDate()}`; };
+
+/* ============================================================
+   Validation — every record is normalised before it is trusted,
+   whether it came from an imported file or from localStorage
+   (a tampered store is treated exactly like a hostile file).
+   ============================================================ */
+const RX_ID    = /^[A-Za-z0-9_-]{1,48}$/;
+const RX_DATE  = /^\d{4}-\d{2}-\d{2}$/;
+const RX_COLOR = /^#[0-9A-Fa-f]{6}$/;
+const CAP = { title:120, about:80, desc:8000, name:24 };
+const MAX_EVENTS = 20000;
+const MAX_CATS = 24;
+const MAX_IMPORT_BYTES = 8 * 1024 * 1024;
+
+/* Only ever emit a colour we have proven is a plain hex literal.
+   Without this, an imported category colour reaches a style attribute. */
+const col = c => RX_COLOR.test(c) ? c : '#858CA6';
+
+function validDate(s){
+  if(typeof s !== 'string' || !RX_DATE.test(s)) return false;
+  const d = parse(s);
+  return !isNaN(d.getTime()) && iso(d) === s;   // also rejects 2026-02-31
+}
+
+/* Strip control characters, cap length. Nothing here trusts the input's type. */
+function cleanText(v, max){
+  return String(v == null ? '' : v)
+    .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F\u202A-\u202E\u2066-\u2069]/g, '')
+    .slice(0, max).trim();
+}
+
+function cleanCat(c){
+  if(!c || typeof c !== 'object' || Array.isArray(c)) return null;
+  const name = cleanText(c.name, CAP.name);
+  if(!RX_ID.test(c.id) || !name) return null;
+  return { id: c.id, name, color: RX_COLOR.test(c.color) ? c.color : SWATCHES[4] };
+}
+
+function cleanEvent(e, allowedIds, fallbackCat){
+  if(!e || typeof e !== 'object' || Array.isArray(e)) return null;
+  const title = cleanText(e.title, CAP.title);
+  if(!validDate(e.date) || !title) return null;
+  const created = Number.isFinite(+e.created) ? +e.created : Date.now();
+  return {
+    id: RX_ID.test(e.id) ? e.id : uid(),
+    date: e.date,
+    title,
+    about: cleanText(e.about, CAP.about),
+    description: cleanText(e.description, CAP.desc),
+    catId: allowedIds.has(e.catId) ? e.catId : fallbackCat,
+    milestone: e.milestone === true,
+    created,
+    updated: Date.now()
+  };
+}
+
+function normaliseAll(rawCats, rawEvents){
+  let cats = (Array.isArray(rawCats) ? rawCats : []).map(cleanCat).filter(Boolean);
+  // guarantee the four built-ins always exist and are never shadowed
+  DEFAULT_CATS.forEach(d => { if(!cats.some(c => c.id === d.id)) cats.push({ ...d }); });
+  const seen = new Set();
+  cats = cats.filter(c => seen.has(c.id) ? false : seen.add(c.id));
+  const events = (Array.isArray(rawEvents) ? rawEvents : [])
+    .slice(0, MAX_EVENTS)
+    .map(e => cleanEvent(e, seen, cats[0].id))
+    .filter(Boolean);
+  return { cats, events };
+}
+
+function load(){
+  let rawE = [], rawC = null;
+  try { rawE = JSON.parse(Store.get(K_EV) || '[]'); } catch(e){ rawE = []; }
+  try { rawC = JSON.parse(Store.get(K_CAT) || 'null'); } catch(e){ rawC = null; }
+  const out = normaliseAll(rawC, rawE);
+  S.cats = out.cats;
+  S.events = out.events;
+  loadJournals();
+  loadHabits();
+  applyTheme(Store.get(K_THEME));
+}
+
+function saveEvents(){
+  if(!Store.set(K_EV, JSON.stringify(S.events)))
+    toast('Could not save — storage is full. Export a backup.');
+}
+function saveCats(){
+  if(!Store.set(K_CAT, JSON.stringify(S.cats)))
+    toast('Could not save — storage is full. Export a backup.');
+}
+
+const filtered = () => S.events
+  .filter(e => S.cat === 'all' || e.catId === S.cat)
+  .sort((a,b) => b.date.localeCompare(a.date) || (b.created||0) - (a.created||0));
+
+let toastT;
+function toast(msg){
+  const t = $('#toast'); t.textContent = msg; t.classList.add('on');
+  clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove('on'), 2100);
+}
+function haptic(){ if(navigator.vibrate) try{ navigator.vibrate(8); }catch(e){} }
+
+/* ============================================================
+   Event card
+   ============================================================ */
+/* Highlight by scanning the RAW string and escaping each piece separately.
+   Matching against already-escaped text would let a query like "amp" or "39"
+   split an HTML entity apart. No regex here, so no ReDoS surface either. */
+function hl(text, q){
+  const s = String(text == null ? '' : text);
+  const needle = String(q == null ? '' : q).toLowerCase();
+  if(!needle) return esc(s);
+  const hay = s.toLowerCase();
+  let out = '', i = 0;
+  for(;;){
+    const j = hay.indexOf(needle, i);
+    if(j < 0){ out += esc(s.slice(i)); break; }
+    out += esc(s.slice(i, j)) + '<mark>' + esc(s.slice(j, j + needle.length)) + '</mark>';
+    i = j + needle.length;
+  }
+  return out;
+}
+
+function evCard(e, q){
+  const c = catOf(e.catId);
+  return `<button class="ev" style="--c:${col(c.color)}" data-ev="${esc(e.id)}">
+    <div class="row">
+      <span class="t">${hl(e.title, q)}</span>
+      ${e.milestone ? '<span class="star">★</span>' : ''}
+    </div>
+    <div class="meta"><span class="tag">${esc(c.name)}</span><span>·</span><span>${longDate(e.date)}</span>
+      ${e.about ? `<span>·</span><span>${hl(e.about, q)}</span>` : ''}</div>
+    ${e.description ? `<div class="d">${hl(e.description, q)}</div>` : ''}
+  </button>`;
+}
+
+/* ============================================================
+   Search — spans every lens, respects the category filter
+   ============================================================ */
+function matchEv(e, q){
+  return (e.title + ' ' + e.description + ' ' + e.about + ' ' + catOf(e.catId).name)
+    .toLowerCase().includes(q);
+}
+
+function renderSearch(){
+  const q = S.query.trim().toLowerCase();
+  const hits = S.events
+    .filter(e => (S.cat === 'all' || e.catId === S.cat) && matchEv(e, q))
+    .sort((a,b) => b.date.localeCompare(a.date));
+
+  if(!hits.length) return `<div class="empty"><div class="mark">◌</div>
+    <h3>Nothing matches “${esc(S.query)}”</h3>
+    <p>Try a shorter word${S.cat !== 'all' ? ', or switch the category filter back to All' : ''}.</p></div>`;
+
+  const years = {};
+  hits.forEach(e => (years[e.date.slice(0,4)] = years[e.date.slice(0,4)] || []).push(e));
+
+  return `<div class="sec-label">${hits.length} match${hits.length===1?'':'es'} for “${esc(S.query)}”</div>` +
+    Object.keys(years).sort((a,b) => b - a).map(y =>
+      `<div class="day-group"><h4>${esc(y)}</h4>
+        <div class="stack">${years[y].map(e => evCard(e, S.query.trim())).join('')}</div></div>`
+    ).join('');
+}
+
+/* ============================================================
+   On this day — same calendar day, earlier years
+   ============================================================ */
+function onThisDay(){
+  const now = new Date();
+  const md = `-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`;
+  return S.events
+    .filter(e => (S.cat === 'all' || e.catId === S.cat))
+    .filter(e => e.date.endsWith(md) && +e.date.slice(0,4) < now.getFullYear())
+    .sort((a,b) => b.date.localeCompare(a.date));
+}
+
+function otdBlock(){
+  const hits = onThisDay();
+  if(!hits.length) return '';
+  const now = new Date().getFullYear();
+  const gaps = hits.map(e => now - +e.date.slice(0,4));
+  const span = gaps.length === 1
+    ? `${gaps[0]} year${gaps[0]===1?'':'s'} ago today`
+    : `${gaps[gaps.length-1]}–${gaps[0]} years ago today`;
+  return `<div class="otd"><h4>On this day</h4><div class="sub">${span}</div>
+    <div class="stack">${hits.map(e => evCard(e)).join('')}</div></div>`;
+}
+
+/* ============================================================
+   Lens 1 — Calendar
+   ============================================================ */
+function renderCalendar(){
+  const list = filtered();
+  const y = S.cursor.getFullYear(), m = S.cursor.getMonth();
+  const byDate = {};
+  list.forEach(e => (byDate[e.date] = byDate[e.date] || []).push(e));
+
+  const first = new Date(y, m, 1, 12);
+  const start = new Date(y, m, 1 - first.getDay(), 12);
+  const tISO = todayISO();
+
+  let cells = '';
+  for(let i = 0; i < 42; i++){
+    const d = new Date(start.getFullYear(), start.getMonth(), start.getDate() + i, 12);
+    const key = iso(d), out = d.getMonth() !== m;
+    const evs = byDate[key] || [];
+    const pills = evs.slice(0,2).map(e =>
+      `<span class="pill" style="--c:${col(catOf(e.catId).color)}">${esc(e.title)}</span>`).join('');
+    cells += `<button class="cell${evs.length?' has':''}${out?' out':''}${key===tISO?' today':''}${key===S.selDay?' sel':''}" data-day="${esc(key)}">
+      <span class="n">${d.getDate()}</span>${pills}
+      ${evs.length>2 ? `<span class="more">+${evs.length-2}</span>` : ''}
+    </button>`;
+  }
+
+  const monthEvs = list.filter(e => e.date.startsWith(`${y}-${String(m+1).padStart(2,'0')}`))
+                       .sort((a,b) => a.date.localeCompare(b.date));
+  const groups = {};
+  monthEvs.forEach(e => (groups[e.date] = groups[e.date] || []).push(e));
+
+  let agenda = Object.keys(groups).length
+    ? Object.keys(groups).sort().map(k => `<div class="day-group" id="d-${esc(k)}">
+        <h4>${dayLabel(k)}</h4><div class="stack">${groups[k].map(evCard).join('')}</div></div>`).join('')
+    : `<p style="margin-top:22px;font-size:12px;color:var(--text-3);text-align:center">
+         Nothing recorded in ${MON[m]} yet.</p>`;
+
+  // Selected an empty day? Offer to fill it, right there.
+  if(S.selDay && !groups[S.selDay] && parse(S.selDay).getMonth() === m && parse(S.selDay).getFullYear() === y){
+    agenda = `<button class="srow" data-add-on="${esc(S.selDay)}" style="margin-bottom:12px">
+        <span class="ic">＋</span><div style="flex:1"><div class="tt">Add an event on ${longDate(S.selDay)}</div>
+        <div class="ts">This day is still blank</div></div></button>` + agenda;
+  }
+
+  const now = new Date();
+  const otd = (y === now.getFullYear() && m === now.getMonth()) ? otdBlock() : '';
+
+  return otd + `<div class="cal-head">
+      <button class="nav-btn" data-mv="-1" aria-label="Previous month">‹</button>
+      <div class="m">${MON[m]} <span>${y}</span></div>
+      <button class="today-btn" data-mv="0">Today</button>
+      <button class="nav-btn" data-mv="1" aria-label="Next month">›</button>
+    </div>
+    <div class="dow">${DOW.map(d=>`<span>${d}</span>`).join('')}</div>
+    <div class="grid">${cells}</div>
+    <div class="sec-label">${monthEvs.length} event${monthEvs.length===1?'':'s'} this month</div>
+    ${agenda}`;
+}
+
+/* ============================================================
+   Lens 2 — Journey tree
+   ============================================================ */
+function renderTree(){
+  const list = filtered();
+  if(!list.length) return emptyState('Your tree has no branches yet', 'Every event you save grows a new leaf, grouped by the year and month it happened.');
+
+  const years = {};
+  list.forEach(e => {
+    const d = parse(e.date), yy = d.getFullYear(), mm = d.getMonth();
+    years[yy] = years[yy] || {};
+    (years[yy][mm] = years[yy][mm] || []).push(e);
+  });
+
+  return Object.keys(years).sort((a,b) => b - a).map(yy => {
+    const months = years[yy];
+    const count = Object.values(months).reduce((n,a) => n + a.length, 0);
+    const open = S.openYears[yy] !== false;
+    const body = Object.keys(months).sort((a,b) => b - a).map(mm => `
+      <div class="mo">
+        <div class="mo-label">${MON[mm]} · ${months[mm].length}</div>
+        <div class="stack">${months[mm].map(e => `<div class="leaf">${evCard(e)}</div>`).join('')}</div>
+      </div>`).join('');
+    return `<section class="yr" data-open="${open}">
+      <button class="yr-head" data-year="${esc(yy)}">
+        <span class="y">${yy}</span><span class="c">${count} event${count===1?'':'s'}</span>
+        <span class="caret">▾</span>
+      </button>
+      <div class="yr-body">${body}</div>
+    </section>`;
+  }).join('');
+}
+
+/* ============================================================
+   Lens 3 — Milestone map  (the signature view)
+   ============================================================ */
+function renderMap(){
+  const all = filtered();
+  const stars = all.filter(e => e.milestone);
+  const useStars = S.mapMode === 'milestones' && stars.length > 0;
+  const list = (useStars ? stars : all).slice().sort((a,b) => a.date.localeCompare(b.date));
+
+  const toggle = `<div class="map-toggle">
+      <button data-map="milestones" aria-pressed="${S.mapMode==='milestones'}">★ Milestones${stars.length?` (${stars.length})`:''}</button>
+      <button data-map="all" aria-pressed="${S.mapMode==='all'}">All events</button>
+    </div>`;
+
+  if(!list.length) return toggle + emptyState('No stops on the map yet',
+    'Mark an event as a milestone while saving it and it becomes a stop on your trail.');
+
+  const note = (S.mapMode === 'milestones' && !stars.length)
+    ? `<p style="font-size:11px;color:var(--text-3);margin:8px 0 0">No milestones marked yet — showing everything instead.</p>` : '';
+
+  let out = '', lastYear = null, n = 0;
+  list.forEach((e, i) => {
+    const yy = parse(e.date).getFullYear();
+    if(yy !== lastYear){
+      out += `<div class="checkpoint"><span class="badge">${yy}</span><span class="rule"></span></div>`;
+      lastYear = yy;
+    } else if(i > 0){
+      const bow = n % 2 === 0 ? 21 : 0;
+      out += `<svg class="link" viewBox="0 0 24 34" aria-hidden="true">
+        <path d="M10.5,0 C10.5,13 ${bow},21 10.5,34"/></svg>`;
+    }
+    n++;
+    const c = catOf(e.catId).color;
+    out += `<div class="stop" style="--c:${col(c)}">
+      <span class="pin${e.milestone?' big':''}"><i></i></span>${evCard(e)}
+    </div>`;
+  });
+
+  return toggle + note + `<div class="trail">${out}</div>`;
+}
+
+function emptyState(h, p){
+  return `<div class="empty"><div class="mark">✎</div><h3>${h}</h3><p>${p}</p>
+    <button data-open-add="1">Record an event</button></div>`;
+}
+
+/* ============================================================
+   Insights — streaks and rhythm, computed from months not days
+   (a life journal shouldn't demand a daily entry)
+   ============================================================ */
+function monthIndex(k){ const [y,m] = k.split('-').map(Number); return y*12 + (m-1); }
+function monthKey(i){ return `${Math.floor(i/12)}-${String(i%12 + 1).padStart(2,'0')}`; }
+
+function insights(){
+  if(!S.events.length) return '';
+
+  const counts = {};
+  S.events.forEach(e => { const k = e.date.slice(0,7); counts[k] = (counts[k]||0) + 1; });
+  const keys = Object.keys(counts).sort();
+
+  // longest consecutive run of months containing at least one event
+  let longest = 1, run = 1, tail = 1;
+  for(let i = 1; i < keys.length; i++){
+    run = monthIndex(keys[i]) === monthIndex(keys[i-1]) + 1 ? run + 1 : 1;
+    if(run > longest) longest = run;
+  }
+  tail = run;
+  const nowIdx = monthIndex(todayISO().slice(0,7));
+  const lastIdx = monthIndex(keys[keys.length-1]);
+  const isLive = lastIdx === nowIdx;
+  const streakLabel = isLive ? 'Current run' : 'Last run';
+
+  // busiest single month
+  const busiest = keys.reduce((a,b) => counts[b] > counts[a] ? b : a, keys[0]);
+  const [by, bm] = busiest.split('-').map(Number);
+
+  // last 12 months
+  const bars = [];
+  for(let i = nowIdx - 11; i <= nowIdx; i++){
+    const k = monthKey(i);
+    bars.push({ k, n: counts[k] || 0, m: i % 12, now: i === nowIdx });
+  }
+  const peak = Math.max(1, ...bars.map(b => b.n));
+
+  // category split
+  const total = S.events.length;
+  const split = S.cats.map(c => ({ ...c, n: S.events.filter(e => e.catId === c.id).length }))
+                      .filter(c => c.n > 0)
+                      .sort((a,b) => b.n - a.n);
+
+  return `<div class="sec-label">Your rhythm</div>
+    <div class="stat-grid">
+      <div class="stat"><b>${tail}</b><span>${streakLabel}</span></div>
+      <div class="stat"><b>${longest}</b><span>Longest run</span></div>
+      <div class="stat"><b>${counts[busiest]}</b><span>Busiest month</span></div>
+    </div>
+    <p class="note">${isLive
+      ? `You've recorded something every month for ${tail} month${tail===1?'':'s'} straight.`
+      : `Your last run reached ${tail} month${tail===1?'':'s'}, ending ${MON3[monthIndex(keys[keys.length-1])%12]} ${keys[keys.length-1].slice(0,4)}.`}
+      ${MON[bm-1]} ${by} was your fullest, with ${counts[busiest]} event${counts[busiest]===1?'':'s'}.</p>
+
+    <div class="sec-label">Last 12 months</div>
+    <div class="bars">
+      ${bars.map(b => `<div class="b${b.now?' now':''}" title="${b.n}">
+        <i style="height:${Math.round(b.n / peak * 100)}%"></i><span>${MON3[b.m][0]}</span></div>`).join('')}
+    </div>
+
+    <div class="sec-label">What you record most</div>
+    <div class="split">${split.map(c =>
+      `<i style="width:${(c.n/total*100).toFixed(1)}%;background:${col(c.color)}"></i>`).join('')}</div>
+    <div class="legend">${split.map(c =>
+      `<span><b style="background:${col(c.color)}"></b>${esc(c.name)} ${Math.round(c.n/total*100)}%</span>`).join('')}</div>`;
+}
+
+/* ============================================================
+   Lens 2 — Monthly ribbon. The year snakes left-to-right, then
+   back again, with events on stems above and below the track.
+   Three months per row, because twelve across is unreadable on
+   a phone; the snake and the alternation carry the same idea.
+   ============================================================ */
+const MONTH_INK = ['#4E8FB5','#7B6BB8','#C98A31','#C25E45','#2E9B7F','#3E9CC4',
+                   '#4E8FB5','#7B6BB8','#C98A31','#C25E45','#2E9B7F','#3E9CC4'];
+
+function renderMonthly(){
+  const list = filtered();
+  const y = S.cursor.getFullYear();
+  const inYear = list.filter(e => e.date.startsWith(String(y)))
+                     .sort((a,b) => a.date.localeCompare(b.date));
+
+  const byMonth = Array.from({ length:12 }, () => []);
+  inYear.forEach(e => byMonth[parse(e.date).getMonth()].push(e));
+
+  const now = new Date();
+  const thisMonth = (now.getFullYear() === y) ? now.getMonth() : -1;
+
+  // One year at a glance: twelve tiles of identical size. Nothing here changes
+  // height with content, so adding events cannot skew the grid.
+  const tiles = byMonth.map((evs, m) => `
+    <button class="mtile${evs.length ? ' has' : ''}${m === thisMonth ? ' now' : ''}"
+            style="--c:${col(MONTH_INK[m])}" data-mon="${esc(m)}">
+      <span class="mname">${MON3[m]}</span>
+      <span class="mcount">${evs.length || '—'}</span>
+    </button>`).join('');
+
+  // Then the year in full, month by month, in order.
+  const months = byMonth.map((evs, m) => {
+    if(!evs.length) return '';
+    return `<section class="mblock" id="m-${y}-${m}">
+      <div class="mhead" style="--c:${col(MONTH_INK[m])}">
+        <span class="mbar"></span>
+        <h4>${MON[m]}</h4>
+        <span class="mnum">${evs.length}</span>
+      </div>
+      <div class="stack">${evs.map(e => evCard(e)).join('')}</div>
+    </section>`;
+  }).join('');
+
+  const body = inYear.length ? months : `<div class="empty" style="margin-top:34px">
+      <div class="mark">◷</div><h3>Nothing recorded in ${y}</h3>
+      <p>Use the arrows to look at another year, or tap ✛ to add something.</p></div>`;
+
+  return `<div class="yr-nav">
+      <button class="nav-btn" data-yr="-1" aria-label="Previous year">‹</button>
+      <div class="yv">${y}<span>${inYear.length} event${inYear.length===1?'':'s'}</span></div>
+      <button class="nav-btn" data-yr="1" aria-label="Next year">›</button>
+    </div>
+    <div class="mgrid">${tiles}</div>
+    ${body}`;
+}
+
+/* ============================================================
+   Journals — Diary and Manifestation are the same machine with
+   different data, so they share one implementation throughout.
+   ============================================================ */
+const JOURNALS = {
+  diary: {
+    key:'chrono.diary.v1', name:'Diary', one:'entry', many:'entries',
+    accent:'#7C5CD6', verb:'Write',
+    blank:'This diary is empty. Tap ✛ and write the first page.',
+    prompt:'What kind of day was it?'
+  },
+  manifest: {
+    key:'chrono.manifest.v1', name:'Manifestation', one:'intention', many:'intentions',
+    accent:'#D9862B', verb:'Set',
+    blank:'Nothing set down yet. Tap ✛ and name the first one.',
+    prompt:'What are you working toward?'
+  }
+};
+const isJournal = t => Object.prototype.hasOwnProperty.call(JOURNALS, t);
+
+const LENSES = {
+  timeline: [['calendar','Calendar'],['monthly','Monthly'],['tree','Journey tree'],['map','Milestone map']],
+  diary:    [['calendar','Calendar'],['book','Diary view'],['stones','Milestones']],
+  manifest: [['calendar','Calendar'],['book','Manifestations'],['stones','Milestones']],
+  habit:    [['today','Today'],['week','Week'],['calendar','Calendar']]
+};
+
+/* Entries carry only what was asked for: a date, a title and a body. */
+function cleanEntry(e){
+  if(!e || typeof e !== 'object' || Array.isArray(e)) return null;
+  const title = cleanText(e.title, CAP.title);
+  if(!validDate(e.date) || !title) return null;
+  return {
+    id: RX_ID.test(e.id) ? e.id : uid(),
+    date: e.date,
+    title,
+    description: cleanText(e.description, CAP.desc),
+    created: Number.isFinite(+e.created) ? +e.created : Date.now(),
+    updated: Date.now()
+  };
+}
+const normaliseEntries = raw =>
+  (Array.isArray(raw) ? raw : []).slice(0, MAX_EVENTS).map(cleanEntry).filter(Boolean);
+
+function loadJournals(){
+  Object.keys(JOURNALS).forEach(k => {
+    let raw = [];
+    try { raw = JSON.parse(Store.get(JOURNALS[k].key) || '[]'); } catch(e){ raw = []; }
+    S.journals[k] = normaliseEntries(raw);
+  });
+}
+function saveJournal(k){
+  if(!Store.set(JOURNALS[k].key, JSON.stringify(S.journals[k])))
+    toast('Could not save — storage is full. Export a backup.');
+}
+/* Newest last, so the book reads forward in time like a real one. */
+const jSorted = k => S.journals[k].slice().sort((a,b) => a.date.localeCompare(b.date) || a.created - b.created);
+const jEntry  = (k, id) => S.journals[k].find(e => e.id === id);
+
+/* ============================================================
+   Journal lens 1 — Calendar with snippets
+   ============================================================ */
+function renderJCalendar(k){
+  const cfg = JOURNALS[k];
+  const cur = S.jCursor[k];
+  const y = cur.getFullYear(), m = cur.getMonth();
+  const byDate = {};
+  S.journals[k].forEach(e => (byDate[e.date] = byDate[e.date] || []).push(e));
+
+  const first = new Date(y, m, 1, 12);
+  const start = new Date(y, m, 1 - first.getDay(), 12);
+  const tISO = todayISO();
+
+  let cells = '';
+  for(let i = 0; i < 42; i++){
+    const d = new Date(start.getFullYear(), start.getMonth(), start.getDate() + i, 12);
+    const key = iso(d), out = d.getMonth() !== m;
+    const es = byDate[key] || [];
+    const pills = es.slice(0,2).map(e =>
+      `<span class="pill" style="--c:${col(cfg.accent)}">${esc(e.title)}</span>`).join('');
+    cells += `<button class="cell${es.length?' has':''}${out?' out':''}${key===tISO?' today':''}" data-jday="${k}:${esc(key)}">
+      <span class="n">${d.getDate()}</span>${pills}
+      ${es.length>2 ? `<span class="more">+${es.length-2}</span>` : ''}
+    </button>`;
+  }
+
+  const monthly = S.journals[k]
+    .filter(e => e.date.startsWith(`${y}-${String(m+1).padStart(2,'0')}`))
+    .sort((a,b) => a.date.localeCompare(b.date));
+
+  const list = monthly.length
+    ? `<div class="stack">${monthly.map(e => jCard(k, e)).join('')}</div>`
+    : `<p style="margin-top:20px;font-size:12px;color:var(--text-3);text-align:center">
+         Nothing written in ${MON[m]}.</p>`;
+
+  return `<div class="cal-head">
+      <button class="nav-btn" data-jmv="${k}:-1" aria-label="Previous month">‹</button>
+      <div class="m">${MON[m]} <span>${y}</span></div>
+      <button class="today-btn" data-jmv="${k}:0">Today</button>
+      <button class="nav-btn" data-jmv="${k}:1" aria-label="Next month">›</button>
+    </div>
+    <div class="dow">${DOW.map(d=>`<span>${d}</span>`).join('')}</div>
+    <div class="grid">${cells}</div>
+    <div class="sec-label">${monthly.length} ${monthly.length===1?cfg.one:cfg.many} this month</div>
+    ${list}`;
+}
+
+function jCard(k, e){
+  const c = col(JOURNALS[k].accent);
+  return `<button class="ev" style="--c:${c}" data-jopen="${k}:${esc(e.id)}">
+    <div class="row"><span class="t">${esc(e.title)}</span></div>
+    <div class="meta"><span>${longDate(e.date)}</span></div>
+    ${e.description ? `<div class="d">${esc(e.description)}</div>` : ''}
+  </button>`;
+}
+
+/* ============================================================
+   Journal lens 2 — the book. One page, one entry, turn to read.
+   ============================================================ */
+function renderBook(k){
+  const cfg = JOURNALS[k];
+  const list = jSorted(k);
+
+  if(!list.length){
+    return `<div class="book"><div class="page blank">
+      <div class="pen">✒</div><p>${esc(cfg.blank)}</p></div></div>`;
+  }
+
+  let i = S.jPage[k];
+  if(!Number.isInteger(i) || i < 0 || i >= list.length){ i = list.length - 1; S.jPage[k] = i; }
+  const e = list[i];
+  const dir = S.flipDir === -1 ? 'prev' : 'next';
+
+  return `<div class="book">
+      <article class="page ${dir}">
+        <div class="page-date">${dayLabel(e.date)} · ${MON[parse(e.date).getMonth()]} ${parse(e.date).getFullYear()}</div>
+        <h3 class="page-title">${esc(e.title)}</h3>
+        <div class="page-body">${esc(e.description) || '<em style="opacity:.5">No details written on this page.</em>'}</div>
+        <div class="page-foot">
+          <button data-jopen="${k}:${esc(e.id)}">Edit this page</button>
+          <span>${i+1} of ${list.length}</span>
+        </div>
+      </article>
+    </div>
+    <div class="flipbar">
+      <button data-jflip="${k}:-1" ${i===0?'disabled':''}>‹ Previous</button>
+      <span class="pos">${i+1} / ${list.length}</span>
+      <button data-jflip="${k}:1" ${i===list.length-1?'disabled':''}>Next ›</button>
+    </div>`;
+}
+
+/* ============================================================
+   Journal lens 3 — every title, date-wise, in small boxes
+   ============================================================ */
+function renderStones(k){
+  const cfg = JOURNALS[k];
+  const list = S.journals[k].slice().sort((a,b) => b.date.localeCompare(a.date));
+  if(!list.length) return `<div class="empty"><div class="mark">✒</div>
+    <h3>Nothing to look back on yet</h3><p>${esc(cfg.blank)}</p></div>`;
+
+  const years = {};
+  list.forEach(e => (years[e.date.slice(0,4)] = years[e.date.slice(0,4)] || []).push(e));
+  const c = col(cfg.accent);
+
+  return Object.keys(years).sort((a,b) => b - a).map(y => `
+    <div class="sec-label">${esc(y)} · ${years[y].length}</div>
+    <div class="stones">${years[y].map(e => `
+      <button class="stone" style="--c:${c}" data-jopen="${k}:${esc(e.id)}">
+        <div class="dt">${parse(e.date).getDate()} ${MON3[parse(e.date).getMonth()]}</div>
+        <div class="ti">${esc(e.title)}</div>
+        ${e.description ? `<div class="sn">${esc(e.description)}</div>` : ''}
+      </button>`).join('')}</div>`).join('');
+}
+
+function renderJournal(k){
+  const lens = S.lens[k];
+  return lens === 'book' ? renderBook(k) : lens === 'stones' ? renderStones(k) : renderJCalendar(k);
+}
+
+/* ============================================================
+   Journal entry editor — date, title, description. Nothing else,
+   because nothing else was asked for.
+   ============================================================ */
+function openEntryEditor(k, entry, presetDate){
+  const cfg = JOURNALS[k];
+  S.jDraft = entry
+    ? { ...entry, k }
+    : { k, id:null, date: validDate(presetDate) ? presetDate : todayISO(), title:'', description:'' };
+  const d = S.jDraft;
+  openSheet(`
+    <h2>${d.id ? 'Edit' : cfg.verb} ${d.id ? 'this page' : (k==='diary' ? 'a page' : 'an intention')}</h2>
+    <p class="hint">${esc(cfg.prompt)}</p>
+    <div class="field"><label for="j-date">When</label>
+      <input id="j-date" type="date" value="${esc(d.date)}"></div>
+    <div class="field"><label for="j-title">Title</label>
+      <input id="j-title" type="text" autocomplete="off" placeholder="${k==='diary'?'A quiet Sunday':'Run a half marathon'}"
+             value="${esc(d.title)}" maxlength="120"></div>
+    <div class="field"><label for="j-desc">Description</label>
+      <textarea id="j-desc" autocomplete="off" rows="7" placeholder="Take as much room as you like.">${esc(d.description)}</textarea></div>
+    <div class="btn-row">
+      ${d.id ? `<button class="btn btn-danger" data-jdel="${k}:${esc(d.id)}">Delete</button>`
+             : `<button class="btn btn-ghost" data-close="1">Cancel</button>`}
+      <button class="btn btn-primary" data-jsave="1">${d.id ? 'Save changes' : 'Save'}</button>
+    </div>`);
+  setTimeout(() => { if(!d.id) $('#j-title')?.focus(); }, 340);
+}
+
+function saveEntry(){
+  if(!S.jDraft) return;
+  const d = S.jDraft, k = d.k;
+  if(!isJournal(k)){ closeSheet(); return; }
+  const date = $('#j-date')?.value || d.date;
+  const title = cleanText($('#j-title')?.value ?? d.title, CAP.title);
+  const description = cleanText($('#j-desc')?.value ?? d.description, CAP.desc);
+  if(!title){ toast('Give it a title first'); $('#j-title')?.focus(); return; }
+  if(!validDate(date)){ toast('Pick a valid date'); return; }
+  const now = Date.now();
+  if(d.id){
+    const i = S.journals[k].findIndex(e => e.id === d.id);
+    if(i < 0){ toast('That page no longer exists'); closeSheet(); render(); return; }
+    S.journals[k][i] = { ...S.journals[k][i], date, title, description, updated:now };
+    toast('Saved');
+  } else {
+    if(S.journals[k].length >= MAX_EVENTS){ toast('This device is at its limit'); return; }
+    const e = { id:uid(), date, title, description, created:now, updated:now };
+    S.journals[k].push(e);
+    S.jCursor[k] = parse(date);
+    S.jPage[k] = jSorted(k).findIndex(x => x.id === e.id);
+    toast(k === 'diary' ? 'Page written' : 'Intention set');
+  }
+  saveJournal(k); closeSheet(); render(); haptic();
+}
+
+function deleteEntry(k, id){
+  if(!confirm('Delete this page? This cannot be undone.')) return;
+  S.journals[k] = S.journals[k].filter(e => e.id !== id);
+  if(S.jPage[k] >= S.journals[k].length) S.jPage[k] = Math.max(0, S.journals[k].length - 1);
+  saveJournal(k); closeSheet(); render(); toast('Deleted');
+}
+
+/* ============================================================
+   Export — per section, or the whole app at once
+   ============================================================ */
+const SCOPES = {
+  all:      { label:'Everything', file:'chrono-studio' },
+  timeline: { label:'Timeline',   file:'chrono-timeline' },
+  diary:    { label:'Diary',      file:'chrono-diary' },
+  manifest: { label:'Manifestation', file:'chrono-manifestation' },
+  habit:    { label:'Habits', file:'chrono-habits' }
+};
+
+function openExportSheet(scope){
+  const s = SCOPES[scope] || SCOPES.all;
+  const n = scope === 'all'
+    ? S.events.length + S.journals.diary.length + S.journals.manifest.length + S.habits.length
+    : scope === 'timeline' ? S.events.length
+    : scope === 'habit' ? S.habits.length : S.journals[scope].length;
+  openSheet(`
+    <h2>Export ${esc(s.label.toLowerCase())}</h2>
+    <p class="hint">${n} record${n===1?'':'s'} · saved to your device, never uploaded</p>
+    <button class="srow" data-xp="${scope}:json"><span class="ic">⤓</span>
+      <div style="flex:1"><div class="tt">Backup (.json)</div>
+      <div class="ts">Complete, and can be imported back into Chrono</div></div></button>
+    <button class="srow" data-xp="${scope}:md"><span class="ic">✎</span>
+      <div style="flex:1"><div class="tt">Readable notes (.md)</div>
+      <div class="ts">For reading, printing or pasting anywhere</div></div></button>
+    <button class="srow" data-xp="${scope}:csv"><span class="ic">▦</span>
+      <div style="flex:1"><div class="tt">Spreadsheet (.csv)</div>
+      <div class="ts">Opens in Numbers, Excel or Sheets</div></div></button>
+    ${scope === 'all' ? `<button class="srow" data-act="import"><span class="ic">⤒</span>
+      <div style="flex:1"><div class="tt">Import a backup</div>
+      <div class="ts">Merges with what is already here</div></div></button>` : ''}
+    <div class="btn-row"><button class="btn btn-ghost" data-close="1">Close</button></div>`);
+}
+
+function exportScope(scope, fmt){
+  const s = SCOPES[scope] || SCOPES.all;
+  const stamp = todayISO();
+  if(fmt === 'json'){
+    const payload = { app:'Chrono Studio', version:2, scope, exported:new Date().toISOString() };
+    if(scope === 'all' || scope === 'timeline'){ payload.categories = S.cats; payload.events = S.events; }
+    if(scope === 'all' || scope === 'diary')    payload.diary = S.journals.diary;
+    if(scope === 'all' || scope === 'manifest') payload.manifest = S.journals.manifest;
+    if(scope === 'all' || scope === 'habit'){ payload.habits = S.habits; payload.habitLog = S.hlog; }
+    download(`${s.file}-${stamp}.json`, JSON.stringify(payload, null, 2), 'application/json');
+    return;
+  }
+  if(fmt === 'md'){
+    let out = `# Chrono Studio — ${s.label}\n\n_exported ${longDate(stamp)}_\n`;
+    if(scope === 'all' || scope === 'timeline') out += timelineMD();
+    if(scope === 'all' || scope === 'diary')    out += journalMD('diary');
+    if(scope === 'all' || scope === 'manifest') out += journalMD('manifest');
+    if(scope === 'all' || scope === 'habit')    out += habitsMD();
+    download(`${s.file}-${stamp}.md`, out, 'text/markdown');
+    return;
+  }
+  const rows = [];
+  if(scope === 'all' || scope === 'timeline'){
+    rows.push(['Section','Date','Title','Category','About','Description','Milestone']);
+    S.events.slice().sort((a,b) => a.date.localeCompare(b.date)).forEach(e =>
+      rows.push(['Timeline', e.date, e.title, catOf(e.catId).name, e.about, e.description, e.milestone?'Yes':'No']));
+  }
+  ['diary','manifest'].forEach(k => {
+    if(scope !== 'all' && scope !== k) return;
+    if(!rows.length) rows.push(['Section','Date','Title','Category','About','Description','Milestone']);
+    jSorted(k).forEach(e => rows.push([JOURNALS[k].name, e.date, e.title, '', '', e.description, '']));
+  });
+  if(scope === 'all' || scope === 'habit'){
+    if(!rows.length) rows.push(['Section','Date','Title','Category','About','Description','Milestone']);
+    Object.keys(S.hlog).sort().forEach(day => S.hlog[day].forEach(id => {
+      const hb = S.habits.find(x => x.id === id);
+      if(hb) rows.push(['Habits', day, hb.name, '', hb.time, 'Done', '']);
+    }));
+  }
+  if(!rows.length) rows.push(['Section','Date','Title','Category','About','Description','Milestone']);
+  download(`${s.file}-${stamp}.csv`, toCSV(rows), 'text/csv');
+}
+
+function timelineMD(){
+  const list = S.events.slice().sort((a,b) => a.date.localeCompare(b.date));
+  if(!list.length) return '\n\n## Timeline\n\n_nothing recorded_\n';
+  let out = '\n\n## Timeline\n', y = null, m = null;
+  list.forEach(e => {
+    const d = parse(e.date);
+    if(d.getFullYear() !== y){ y = d.getFullYear(); m = null; out += `\n### ${y}\n`; }
+    if(d.getMonth() !== m){ m = d.getMonth(); out += `\n#### ${MON[m]}\n`; }
+    out += `\n**${e.date} — ${e.title}**${e.milestone ? ' ★' : ''}  \n`;
+    out += `_${catOf(e.catId).name}${e.about ? ' · ' + e.about : ''}_  \n`;
+    if(e.description) out += `${e.description}\n`;
+  });
+  return out;
+}
+
+function habitsMD(){
+  if(!S.habits.length) return '\n\n## Habits\n\n_none yet_\n';
+  let out = '\n\n## Habits\n';
+  S.habits.forEach(hb => {
+    const st = habitStats(hb);
+    out += `\n**${hb.name}**${hb.time ? ' · ' + hb.time : ''}  \n`;
+    out += `_${hb.days.length === 7 ? 'every day' : hb.days.map(i => DOW_FULL[i]).join(', ')} · `;
+    out += `${st.cur} running · best ${st.best} · ${st.done} of ${st.due} kept (${st.rate}%)_  \n`;
+    if(hb.note) out += `${hb.note}\n`;
+    const days = Object.keys(S.hlog).filter(d => S.hlog[d].includes(hb.id)).sort();
+    if(days.length) out += `\nKept on: ${days.join(', ')}\n`;
+  });
+  return out;
+}
+
+function journalMD(k){
+  const list = jSorted(k);
+  if(!list.length) return `\n\n## ${JOURNALS[k].name}\n\n_nothing written_\n`;
+  let out = `\n\n## ${JOURNALS[k].name}\n`, y = null;
+  list.forEach(e => {
+    const d = parse(e.date);
+    if(d.getFullYear() !== y){ y = d.getFullYear(); out += `\n### ${y}\n`; }
+    out += `\n**${e.date} — ${e.title}**  \n`;
+    if(e.description) out += `${e.description}\n`;
+  });
+  return out;
+}
+
+/* A cell beginning = + - @ or a control char is executed as a formula by
+   Excel, Numbers and Sheets. Prefixing with an apostrophe forces text. */
+function toCSV(rows){
+  const RISKY = /^[=+\-@\t\r]/;
+  const q = v => {
+    let s = String(v == null ? '' : v);
+    if(RISKY.test(s)) s = "'" + s;
+    return `"${s.replace(/"/g,'""')}"`;
+  };
+  return rows.map(r => r.map(q).join(',')).join('\r\n');
+}
+
+/* ============================================================
+   Habits
+   Model: a habit knows its name, note, time and which weekdays it
+   is scheduled for. Completion lives in a separate log keyed by
+   date, so a day's ticks are one lookup and history is compact.
+   Tone is deliberate — nothing here scolds you. A missed day is
+   just an empty box, and today staying unticked does not break a
+   streak until the day is actually over.
+   ============================================================ */
+const K_THEME = 'chrono.theme.v1';
+const THEMES = [
+  { id:'studio',   name:'Studio',    note:'Warm cream and terracotta',
+    sw:['#F4F0E8','#C25733','#1F7A6B','#211E19'] },
+  { id:'graphite', name:'Graphite',  note:'Cool neutral, one vivid accent',
+    sw:['#F2F3F5','#E8552F','#1F7A8C','#16181D'] },
+  { id:'sea',      name:'Sea glass', note:'Cool mist and clear blue',
+    sw:['#EDF1F7','#2E6FE0','#3FB6D8','#152033'] },
+  { id:'forest',   name:'Forest',    note:'Pale sage, deep green, gold',
+    sw:['#EEF2ED','#1F7A4C','#C08A2E','#16201A'] },
+  { id:'blossom',  name:'Blossom',   note:'Blush, lavender, candy accents',
+    sw:['#FAF3F7','#D14D8A','#9B6BD6','#2B1E29'] },
+  { id:'ink',      name:'Ink',       note:'The original dark',
+    sw:['#0C0E16','#7FD1FF','#B79BFF','#EDF0F8'] },
+  { id:'midnight', name:'Midnight',  note:'Deep indigo, cyan and violet',
+    sw:['#0A1020','#3DD5F3','#8B7BFF','#EAF0FF'] },
+  { id:'noir',     name:'Noir',      note:'High contrast, amber on black',
+    sw:['#08090B','#F5A524','#4EA8FF','#F7F8FA'] }
+];
+
+function applyTheme(id){
+  const t = THEMES.some(x => x.id === id) ? id : 'studio';
+  S.theme = t;
+  document.documentElement.setAttribute('data-theme', t);
+  // Keep the iOS status bar and task-switcher card in step with the app.
+  try{
+    const meta = document.querySelector('meta[name="theme-color"]');
+    const bg = getComputedStyle(document.documentElement).getPropertyValue('--bg').trim();
+    if(meta && /^#[0-9A-Fa-f]{6}$/.test(bg)) meta.setAttribute('content', bg);
+  }catch(e){}
+  Store.set(K_THEME, t);
+}
+
+const K_HAB = 'chrono.habits.v1';
+const MAX_HABITS = 30;
+const DOW_FULL = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+
+function cleanHabit(h){
+  if(!h || typeof h !== 'object' || Array.isArray(h)) return null;
+  const name = cleanText(h.name, CAP.name * 2);
+  if(!name) return null;
+  let days = Array.isArray(h.days)
+    ? [...new Set(h.days.map(Number).filter(d => Number.isInteger(d) && d >= 0 && d <= 6))]
+    : [0,1,2,3,4,5,6];
+  if(!days.length) days = [0,1,2,3,4,5,6];
+  return {
+    id: RX_ID.test(h.id) ? h.id : uid(),
+    name,
+    note: cleanText(h.note, CAP.about * 2),
+    time: /^([01]\d|2[0-3]):[0-5]\d$/.test(h.time) ? h.time : '',
+    days: days.sort(),
+    color: RX_COLOR.test(h.color) ? h.color : SWATCHES[0],
+    since: validDate(h.since) ? h.since : todayISO(),
+    created: Number.isFinite(+h.created) ? +h.created : Date.now()
+  };
+}
+
+/* The log is { 'YYYY-MM-DD': [habitId, ...] } — dates and ids both validated. */
+function cleanLog(raw, ids){
+  const out = {};
+  if(!raw || typeof raw !== 'object' || Array.isArray(raw)) return out;
+  Object.keys(raw).slice(0, 4000).forEach(k => {
+    if(!validDate(k) || !Array.isArray(raw[k])) return;
+    const list = [...new Set(raw[k].filter(id => RX_ID.test(id) && ids.has(id)))].slice(0, MAX_HABITS);
+    if(list.length) out[k] = list;
+  });
+  return out;
+}
+
+function loadHabits(){
+  let raw = null;
+  try { raw = JSON.parse(Store.get(K_HAB) || 'null'); } catch(e){ raw = null; }
+  const habits = (Array.isArray(raw && raw.habits) ? raw.habits : [])
+    .slice(0, MAX_HABITS).map(cleanHabit).filter(Boolean);
+  const seen = new Set();
+  S.habits = habits.filter(h => seen.has(h.id) ? false : seen.add(h.id));
+  S.hlog = cleanLog(raw && raw.log, seen);
+  bumpStats();
+}
+function saveHabits(){
+  bumpStats();
+  if(!Store.set(K_HAB, JSON.stringify({ habits:S.habits, log:S.hlog })))
+    toast('Could not save — storage is full. Export a backup.');
+}
+
+const isDone   = (id, day) => !!(S.hlog[day] && S.hlog[day].includes(id));
+const dueOn    = (h, d)    => h.days.includes(d.getDay());
+const habitsOn = d => S.habits.filter(h => dueOn(h, d) && h.since <= iso(d));
+
+function toggleHabit(id, day){
+  // Validated here as well as at the call site: `day` becomes an object key, and
+  // an unchecked key such as __proto__ would reach the prototype chain.
+  if(!RX_ID.test(id) || !validDate(day)) return;
+  if(!S.habits.some(x => x.id === id)) return;
+  const list = Object.prototype.hasOwnProperty.call(S.hlog, day) ? S.hlog[day] : [];
+  if(!Array.isArray(list)) { delete S.hlog[day]; return; }
+  S.hlog[day] = list.includes(id) ? list.filter(x => x !== id) : [...list, id];
+  if(!S.hlog[day].length) delete S.hlog[day];
+  saveHabits(); haptic();
+}
+
+/* One walk from the habit's start date to today gives current streak,
+   best streak and the overall hit rate.
+
+   Memoised, because every render draws a row per habit and each row wants
+   these figures — without the cache, ticking one box re-walks years of
+   history for every habit before the screen redraws. The version counter is
+   bumped by saveHabits(), which every mutation path already calls, and the
+   key carries today's date so the cache cannot survive midnight. */
+let _statsVer = 0;
+const _statsCache = new Map();
+const bumpStats = () => { _statsVer++; _statsCache.clear(); };
+
+/* The cache is emptied at the start of every render and by every save, so it
+   only ever serves repeat lookups inside one synchronous render pass — during
+   which nothing can mutate. That makes stale results impossible rather than
+   unlikely, which a content fingerprint could not guarantee: any cheap hash of
+   the log can collide, and a silently wrong streak is worse than a slow one. */
+function habitStats(h){
+  const ck = `${h.id}|${h.since}|${h.days.join('')}|${_statsVer}|${todayISO()}`;
+  const hit = _statsCache.get(ck);
+  if(hit) return hit;
+  const out = computeHabitStats(h);
+  if(_statsCache.size > 200) _statsCache.clear();
+  _statsCache.set(ck, out);
+  return out;
+}
+
+function computeHabitStats(h){
+  const end = new Date(); end.setHours(12,0,0,0);
+  const d = parse(h.since);
+  const today = todayISO();
+  let cur = 0, best = 0, done = 0, due = 0, guard = 0;
+  while(d <= end && guard++ < 3000){
+    const key = iso(d);
+    if(dueOn(h, d)){
+      due++;
+      if(isDone(h.id, key)){ done++; cur++; if(cur > best) best = cur; }
+      else if(key !== today) cur = 0;      // an unfinished today is not a miss yet
+    }
+    d.setDate(d.getDate() + 1);
+  }
+  return { cur, best, done, due, rate: due ? Math.round(done/due*100) : 0 };
+}
+
+function dayRatio(day){
+  const d = parse(day);
+  const due = habitsOn(d);
+  if(!due.length) return null;
+  const done = due.filter(h => isDone(h.id, day)).length;
+  return { done, due: due.length, pct: Math.round(done/due.length*100) };
+}
+
+/* ---------- Habit lens 1: Today ---------- */
+function renderToday(){
+  if(!S.habits.length) return `<div class="empty"><div class="mark">◈</div>
+    <h3>No habits yet</h3>
+    <p>Add one and it will show up here each day it is due, with a ring that fills as you go.</p>
+    <button data-hadd="1">Add a habit</button></div>`;
+
+  const day = todayISO();
+  const d = new Date();
+  const due = habitsOn(d);
+  const done = due.filter(h => isDone(h.id, day));
+
+  // One ring divided into equal segments, one per habit due today.
+  const R = 78, C = 2 * Math.PI * R, n = Math.max(1, due.length);
+  const gap = n === 1 ? 0 : Math.min(9, C / n * 0.16);
+  const seg = C / n - gap;
+  const arcs = due.map((h, i) => {
+    const filled = isDone(h.id, day);
+    return `<circle r="${R}" cx="93" cy="93" data-hid="${esc(h.id)}" data-col="${col(h.color)}"
+      stroke="${filled ? col(h.color) : 'var(--surface-2)'}"
+      stroke-width="15" stroke-dasharray="${seg.toFixed(2)} ${(C-seg).toFixed(2)}"
+      stroke-dashoffset="${(-i * C / n).toFixed(2)}"
+      opacity="${filled ? 1 : .55}"></circle>`;
+  }).join('');
+
+  const pct = due.length ? Math.round(done.length/due.length*100) : 0;
+  const note = !due.length
+    ? 'Nothing scheduled today. Rest is part of it.'
+    : done.length === due.length
+      ? 'All done for today.'
+      : `${due.length - done.length} still open. No rush.`;
+
+  const rows = due.length
+    ? due.map(h => habitRow(h, day)).join('')
+    : `<p style="font-size:12px;color:var(--text-3);text-align:center;margin-top:8px">
+         Your habits are scheduled for other days this week.</p>`;
+
+  const others = S.habits.filter(h => !due.some(x => x.id === h.id));
+
+  return `<div class="ringwrap">
+      <svg class="ring" viewBox="0 0 186 186" aria-hidden="true">
+        ${due.length ? '' : `<circle class="track" r="${R}" cx="93" cy="93" stroke-width="15"></circle>`}
+        ${arcs}
+      </svg>
+      <div class="ringcap">
+        <b>${done.length}<span>/${due.length}</span></b>
+        <em>${pct}% of today</em>
+      </div>
+    </div>
+    <p class="ringnote">${esc(note)}</p>
+    <div class="sec-label">Due today</div>
+    <div class="stack">${rows}</div>
+    ${others.length ? `<div class="sec-label">Not scheduled today</div>
+      <div class="stack">${others.map(h => habitRow(h, day, true)).join('')}</div>` : ''}`;
+}
+
+/* One source of truth for a habit row's sub-line, so the in-place patch can
+   never disagree with what a full render would have produced. */
+function habitSubline(h){
+  const st = habitStats(h);
+  const bits = [];
+  if(h.time) bits.push(esc(h.time));
+  if(st.cur > 0) bits.push(`<b>${st.cur} day${st.cur===1?'':'s'} running</b>`);
+  else if(st.best > 0) bits.push(`best ${st.best}`);
+  if(h.days.length < 7) bits.push(h.days.map(i => DOW_FULL[i][0]).join(''));
+  return bits.join(' · ') || (h.note ? esc(h.note) : 'Every day');
+}
+
+function habitRow(h, day, muted){
+  const done = isDone(h.id, day);
+  return `<div class="hrow${done?' done':''}" data-hrow="${esc(h.id)}" style="--c:${col(h.color)}${muted?';opacity:.6':''}">
+    <button class="tick" data-htog="${esc(h.id)}:${esc(day)}" aria-pressed="${done}"
+      aria-label="Mark ${esc(h.name)} done">✓</button>
+    <button class="hmeta" data-hopen="${esc(h.id)}">
+      <div class="hn">${esc(h.name)}</div>
+      <div class="hs">${habitSubline(h)}</div>
+    </button>
+    <span class="hgo">›</span>
+  </div>`;
+}
+
+/* ---------- Habit lens 2: the week ---------- */
+
+/* Weeks run Monday to Sunday, matching how most people read a week. */
+function weekDays(anchor){
+  const a = new Date(anchor.getFullYear(), anchor.getMonth(), anchor.getDate(), 12);
+  const start = new Date(a); start.setDate(a.getDate() - ((a.getDay() + 6) % 7));
+  return Array.from({ length:7 }, (_,i) => {
+    const d = new Date(start.getFullYear(), start.getMonth(), start.getDate() + i, 12);
+    return { d, key: iso(d) };
+  });
+}
+
+/* Every figure the weekly screen shows, computed once from the model.
+   The renderer and the in-place patcher both read this, so they cannot
+   drift apart — which they did when each derived the numbers its own way. */
+function weekFigures(days){
+  const today = todayISO();
+  const perDay = [0,0,0,0,0,0,0];
+  let kept = 0, due = 0;
+
+  const rows = S.habits.map(hb => {
+    const cells = days.map((x, i) => {
+      const scheduled = dueOn(hb, x.d) && hb.since <= x.key;
+      const future = x.key > today;
+      const on = isDone(hb.id, x.key);
+      const counts = scheduled && !future;      // a day that can be "met"
+      if(on) perDay[i]++;                        // best-day counts every tick
+      if(counts){ due++; if(on){ kept++; } }     // but met/kept only count due days
+      return { key:x.key, on, future, scheduled, counts };
+    });
+    const rDue  = cells.filter(c => c.counts).length;
+    const rKept = cells.filter(c => c.counts && c.on).length;
+    // kept-of-due, never all-ticks-of-due: ticking a rest day used to produce
+    // labels like "4 of 3" and a Met percentage above 100.
+    return { habit:hb, cells, hit:rKept, due:rDue, perfect: rDue > 0 && rKept === rDue };
+  });
+
+  const total = Object.keys(S.hlog).reduce((n,k) => n + S.hlog[k].length, 0);
+  const best = Math.max(0, ...S.habits.map(x => habitStats(x).best));
+  return { rows, met: due ? Math.round(kept/due*100) : 0,
+           bestDay: Math.max(0, ...perDay), total, best };
+}
+
+function renderWeek(){
+  if(!S.habits.length) return `<div class="empty"><div class="mark">◈</div>
+    <h3>Nothing to chart yet</h3><p>Add a habit and its week fills in here, one tile a day.</p>
+    <button data-hadd="1">Add a habit</button></div>`;
+
+  const days = weekDays(S.hWeek);
+  const f = weekFigures(days);
+  const today = todayISO();
+  const dd = n => String(n).padStart(2,'0');
+  const label = `${dd(days[0].d.getDate())}/${dd(days[0].d.getMonth()+1)} — ${dd(days[6].d.getDate())}/${dd(days[6].d.getMonth()+1)}`;
+
+  const head = `<div class="wname"></div>` +
+    days.map(x => `<div class="wh${x.key===today?' now':''}">${'MTWTFSS'[(x.d.getDay()+6)%7]}<i>${x.d.getDate()}</i></div>`).join('') +
+    `<div class="wh"></div>`;
+
+  const rows = f.rows.map(r => {
+    const c = col(r.habit.color);
+    const cells = r.cells.map(x => {
+      const cls = [x.on ? 'on' : '', x.future ? 'future' : '',
+                   (!x.scheduled && !x.future) ? 'off' : ''].filter(Boolean).join(' ');
+      return `<button class="wcell ${cls}" style="--c:${c}" data-htog="${esc(r.habit.id)}:${esc(x.key)}"
+        aria-label="${esc(r.habit.name)} on ${x.key}" aria-pressed="${x.on}"></button>`;
+    }).join('');
+    return `<button class="wname" style="--c:${c}" data-hopen="${esc(r.habit.id)}">${esc(r.habit.name)}<i>${r.hit} of ${r.due}</i></button>`
+      + cells
+      + `<div class="wbadge" style="--c:${c}">${r.perfect ? '<span class="perfect" title="Every scheduled day kept">★</span>' : ''}</div>`;
+  }).join('');
+
+  return `<div class="wk-head">
+      <button class="nav-btn" data-hwk="-1" aria-label="Previous week">‹</button>
+      <div class="wv">${label}<span>${days[6].d.getFullYear()}</span></div>
+      <button class="today-btn" data-hwk="0">Today</button>
+      <button class="nav-btn" data-hwk="1" aria-label="Next week">›</button>
+    </div>
+    <div class="wgrid">${head}${rows}</div>
+    <div class="wstats">
+      <div class="ws"><b style="color:var(--accent)">${f.met}<span>%</span></b><em>Met</em></div>
+      <div class="ws"><b style="color:var(--c2)">${f.bestDay}</b><em>Best day</em></div>
+      <div class="ws"><b style="color:var(--c3)">${f.total}</b><em>Total done</em></div>
+      <div class="ws"><b style="color:var(--c4)">${f.best}<span>d</span></b><em>Best streak</em></div>
+    </div>
+    <p class="note" style="text-align:center">Tap any tile to change it. Empty tiles are just empty.</p>`;
+}
+
+/* ---------- Habit lens 3: completion calendar ---------- */
+function renderHabitCal(){
+  if(!S.habits.length) return `<div class="empty"><div class="mark">◈</div>
+    <h3>No habits yet</h3><p>Once you have one, this month fills with a small dial for each day.</p>
+    <button data-hadd="1">Add a habit</button></div>`;
+
+  const cur = S.hCursor;
+  const y = cur.getFullYear(), m = cur.getMonth();
+  const first = new Date(y, m, 1, 12);
+  const start = new Date(y, m, 1 - first.getDay(), 12);
+  const today = todayISO();
+
+  let cells = '', monthDone = 0, monthDue = 0;
+  for(let i = 0; i < 42; i++){
+    const d = new Date(start.getFullYear(), start.getMonth(), start.getDate() + i, 12);
+    const key = iso(d), out = d.getMonth() !== m;
+    const r = key > today ? null : dayRatio(key);
+    if(!out && r){ monthDone += r.done; monthDue += r.due; }
+    const dial = r
+      ? `<span class="dial${r.pct===100?' full':r.pct===0?' none':''}" style="--p:${r.pct}">
+           <i>${r.done}</i></span>`
+      : '';
+    cells += `<button class="cell${r?' has':''}${out?' out':''}${key===today?' today':''}${key===S.hSel?' sel':''}" data-hday="${esc(key)}">
+      <span class="n">${d.getDate()}</span>${dial}</button>`;
+  }
+
+  const rate = monthDue ? Math.round(monthDone/monthDue*100) : 0;
+  const sel = S.hSel && S.hSel.startsWith(`${y}-${String(m+1).padStart(2,'0')}`) ? S.hSel : null;
+  const selBlock = sel ? (() => {
+    const d = parse(sel);
+    const list = habitsOn(d);
+    return `<div class="sec-label">${dayLabel(sel)} ${MON3[d.getMonth()]}</div>
+      ${list.length ? `<div class="stack">${list.map(h => habitRow(h, sel)).join('')}</div>`
+        : `<p style="font-size:12px;color:var(--text-3);text-align:center">Nothing was scheduled that day.</p>`}`;
+  })() : '';
+
+  return `<div class="cal-head">
+      <button class="nav-btn" data-hmv="-1" aria-label="Previous month">‹</button>
+      <div class="m">${MON[m]} <span>${y}</span></div>
+      <button class="today-btn" data-hmv="0">Today</button>
+      <button class="nav-btn" data-hmv="1" aria-label="Next month">›</button>
+    </div>
+    <div class="dow">${DOW.map(x=>`<span>${x}</span>`).join('')}</div>
+    <div class="grid hcal">${cells}</div>
+    <div class="sec-label">${monthDone} of ${monthDue} kept this month · ${rate}%</div>
+    ${selBlock || `<p style="font-size:11.5px;color:var(--text-3);text-align:center">Tap a day to see it.</p>`}`;
+}
+
+function renderHabits(){
+  const lens = S.lens.habit;
+  return lens === 'week' ? renderWeek() : lens === 'calendar' ? renderHabitCal() : renderToday();
+}
+
+/* ---------- Habit editor ---------- */
+function openHabitEditor(h){
+  S.hDraft = h ? { ...h, days:[...h.days] }
+              : { id:null, name:'', note:'', time:'', days:[0,1,2,3,4,5,6],
+                  color:SWATCHES[S.habits.length % SWATCHES.length], since:todayISO() };
+  drawHabitEditor();
+}
+
+function syncHabit(){
+  const d = S.hDraft; if(!d) return;
+  d.name = $('#h-name')?.value ?? d.name;
+  d.note = $('#h-note')?.value ?? d.note;
+  d.time = $('#h-time')?.value ?? d.time;
+}
+
+function drawHabitEditor(){
+  const d = S.hDraft; if(!d) return;
+  const st = d.id ? habitStats(S.habits.find(x => x.id === d.id) || d) : null;
+  openSheet(`
+    <h2>${d.id ? 'Edit habit' : 'New habit'}</h2>
+    <p class="hint">${d.id ? 'Changing the schedule does not touch days already logged.'
+                          : 'Small and specific beats ambitious and vague.'}</p>
+    ${st ? `<div class="stat-grid" style="margin-bottom:14px">
+      <div class="stat"><b>${st.cur}</b><span>Running</span></div>
+      <div class="stat"><b>${st.best}</b><span>Best</span></div>
+      <div class="stat"><b>${st.rate}%</b><span>Kept</span></div>
+    </div>` : ''}
+    <div class="field"><label for="h-name">Habit</label>
+      <input id="h-name" type="text" autocomplete="off" placeholder="Walk after dinner" value="${esc(d.name)}" maxlength="48"></div>
+    <div class="field"><label for="h-note">Details</label>
+      <input id="h-note" type="text" autocomplete="off" placeholder="Twenty minutes, phone left at home" value="${esc(d.note)}" maxlength="160"></div>
+    <div class="field"><label for="h-time">Time (optional)</label>
+      <input id="h-time" type="time" value="${esc(d.time)}"></div>
+    <div class="field"><label>Which days</label>
+      <div class="dow-pick" style="--c:${col(d.color)}">
+        ${DOW_FULL.map((n,i) => `<button data-hday-pick="${i}" aria-pressed="${d.days.includes(i)}">${n[0]}</button>`).join('')}
+      </div>
+      <p class="note">${d.days.length === 7 ? 'Every day.' : d.days.map(i => DOW_FULL[i]).join(', ') || 'Pick at least one day.'}</p>
+    </div>
+    <div class="field"><label>Colour</label>
+      <div class="swatches">${SWATCHES.map(s =>
+        `<button data-hcol="${s}" style="background:${s}" aria-pressed="${d.color===s}"></button>`).join('')}</div>
+    </div>
+    <div class="btn-row">
+      ${d.id ? `<button class="btn btn-danger" data-hdel="${esc(d.id)}">Delete</button>`
+             : `<button class="btn btn-ghost" data-close="1">Cancel</button>`}
+      <button class="btn btn-primary" data-hsave="1">${d.id ? 'Save changes' : 'Add habit'}</button>
+    </div>`);
+  setTimeout(() => { if(!d.id) $('#h-name')?.focus(); }, 340);
+}
+
+function saveHabit(){
+  if(!S.hDraft) return;
+  syncHabit();
+  const d = S.hDraft;
+  const name = cleanText(d.name, CAP.name * 2);
+  if(!name){ toast('Name the habit first'); $('#h-name')?.focus(); return; }
+  if(!d.days.length){ toast('Pick at least one day'); return; }
+  if(d.id){
+    const i = S.habits.findIndex(x => x.id === d.id);
+    if(i < 0){ toast('That habit no longer exists'); closeSheet(); render(); return; }
+    S.habits[i] = cleanHabit({ ...S.habits[i], name, note:d.note, time:d.time, days:d.days, color:d.color });
+    toast('Saved');
+  } else {
+    if(S.habits.length >= MAX_HABITS){ toast(`Chrono holds ${MAX_HABITS} habits`); return; }
+    const h = cleanHabit({ ...d, id:uid(), name, since:todayISO() });
+    if(!h){ toast('Could not save that'); return; }
+    S.habits.push(h);
+    toast('Habit added');
+  }
+  saveHabits(); closeSheet(); render(); haptic();
+}
+
+function deleteHabit(id){
+  const h = S.habits.find(x => x.id === id);
+  if(!h) return;
+  if(!confirm(`Delete "${h.name}" and its history? This cannot be undone.`)) return;
+  S.habits = S.habits.filter(x => x.id !== id);
+  Object.keys(S.hlog).forEach(k => {
+    S.hlog[k] = S.hlog[k].filter(x => x !== id);
+    if(!S.hlog[k].length) delete S.hlog[k];
+  });
+  saveHabits(); closeSheet(); render(); toast('Deleted');
+}
+
+/* ============================================================
+   Rooms still being built
+   ============================================================ */
+const WIP = {};   // every room is built now
+
+function renderWIP(key){
+  const w = WIP[key];
+  if(!w) return '';   // never reached in-app, but a missing room should not blank the screen
+  return `<div class="wip">
+    <div class="glyph">${w.glyph}</div>
+    <h3>${w.name}</h3>
+    <p class="tagline">${w.tagline}</p>
+    <span class="flag">Work in progress</span>
+    <ul>${w.plan.map(([h,t]) => `<li><b>${h}</b><span>${t}</span></li>`).join('')}</ul>
+    <p class="note" style="text-align:center;margin-top:18px">
+      Nothing here saves yet. Your timeline is unaffected.</p>
+  </div>`;
+}
+
+/* ============================================================
+   Library tab
+   ============================================================ */
+function renderLibrary(){
+  const total = S.events.length;
+  const ms = S.events.filter(e => e.milestone).length;
+  const years = new Set(S.events.map(e => e.date.slice(0,4))).size;
+  const byCat = S.cats.map(c => ({ ...c, n: S.events.filter(e => e.catId === c.id).length }));
+
+  return `<div class="sec-label">Your record</div>
+    <div class="stat-grid">
+      <div class="stat"><b>${total}</b><span>Events</span></div>
+      <div class="stat"><b>${ms}</b><span>Milestones</span></div>
+      <div class="stat"><b>${years}</b><span>Years</span></div>
+    </div>
+    <div class="stat-grid">
+      <div class="stat"><b>${S.journals.diary.length}</b><span>Diary</span></div>
+      <div class="stat"><b>${S.journals.manifest.length}</b><span>Intentions</span></div>
+      <div class="stat"><b>${S.habits.length}</b><span>Habits</span></div>
+    </div>
+    ${insights()}
+    <div class="sec-label">Categories</div>
+    <div class="stack" style="margin-bottom:6px">
+      ${byCat.map(c => `<div class="srow" style="margin:0">
+        <span class="ic" style="background:color-mix(in srgb,${col(c.color)} 20%,transparent)">
+          <span style="width:9px;height:9px;border-radius:50%;background:${col(c.color)};display:block"></span></span>
+        <div style="flex:1"><div class="tt">${esc(c.name)}</div><div class="ts">${c.n} event${c.n===1?'':'s'}</div></div>
+        ${DEFAULT_CATS.some(d=>d.id===c.id) ? '' : `<button class="ts" data-delcat="${esc(c.id)}" style="color:#FF9BB3;font-weight:700">Remove</button>`}
+      </div>`).join('')}
+    </div>
+    <div class="sec-label">Take your data with you</div>
+    <button class="srow" data-xs="all"><span class="ic">⤓</span>
+      <div style="flex:1"><div class="tt">Export everything</div>
+      <div class="ts">Timeline, diary and manifestations in one file</div></div></button>
+    <button class="srow" data-xs="timeline"><span class="ic">◷</span>
+      <div style="flex:1"><div class="tt">Export Timeline only</div>
+      <div class="ts">${S.events.length} event${S.events.length===1?'':'s'}</div></div></button>
+    <button class="srow" data-xs="diary"><span class="ic">✒</span>
+      <div style="flex:1"><div class="tt">Export Diary only</div>
+      <div class="ts">${S.journals.diary.length} page${S.journals.diary.length===1?'':'s'}</div></div></button>
+    <button class="srow" data-xs="manifest"><span class="ic">✧</span>
+      <div style="flex:1"><div class="tt">Export Manifestations only</div>
+      <div class="ts">${S.journals.manifest.length} intention${S.journals.manifest.length===1?'':'s'}</div></div></button>
+    <button class="srow" data-xs="habit"><span class="ic">◈</span>
+      <div style="flex:1"><div class="tt">Export Habits only</div>
+      <div class="ts">${S.habits.length} habit${S.habits.length===1?'':'s'} and their history</div></div></button>
+    <button class="srow" data-act="import"><span class="ic">⤒</span>
+      <div style="flex:1"><div class="tt">Import a backup</div><div class="ts">Merges with what is already here</div></div></button>
+    <div class="sec-label">Look and feel</div>
+    <div class="themes">${THEMES.map(t => `
+      <button class="theme" data-theme-pick="${esc(t.id)}" aria-pressed="${S.theme===t.id}">
+        <span class="sw">${t.sw.map(c => `<i style="background:${col(c)}"></i>`).join('')}</span>
+        <div class="tn">${esc(t.name)}</div>
+        <div class="td">${esc(t.note)}</div>
+      </button>`).join('')}</div>
+    <p class="note">Pick one and the whole app follows, diary paper included.</p>
+
+    <div class="sec-label">Privacy</div>
+    <div class="srow"><span class="ic">${Store.live ? '✓' : '!'}</span>
+      <div style="flex:1"><div class="tt">${Store.live ? 'Saved on this device' : 'Preview mode — not saving'}</div>
+      <div class="ts">${Store.live
+        ? 'Chrono makes no network requests at all. Nothing is sent anywhere, because there is nowhere for it to go.'
+        : 'This browser is blocking local storage, so nothing you write here will survive. Open the hosted app instead.'}</div></div></div>
+    <div class="srow"><span class="ic">◐</span>
+      <div style="flex:1"><div class="tt">What could still read this</div>
+      <div class="ts">Any other page published on the same domain shares this storage and could read your events, diary, intentions and habits alike. Keep this address to Chrono alone, or use a custom domain.</div></div></div>
+    <div class="srow"><span class="ic">⚑</span>
+      <div style="flex:1"><div class="tt">Not encrypted</div>
+      <div class="ts">Anyone who unlocks your phone can open Chrono. Your device passcode is the lock.</div></div></div>
+    <div class="srow"><span class="ic">▣</span>
+      <div style="flex:1"><div class="tt">iOS keeps a snapshot</div>
+      <div class="ts">Whatever is on screen when you switch apps appears in the app switcher. Leave a neutral tab open before handing your phone over.</div></div></div>
+    <button class="srow" data-act="wipe"><span class="ic">✕</span>
+      <div style="flex:1"><div class="tt" style="color:#FF9BB3">Delete everything</div><div class="ts">Cannot be undone — export first</div></div></button>
+    <input type="file" id="fileIn" accept=".json,application/json" hidden>`;
+}
+
+/* ============================================================
+   Render
+   ============================================================ */
+function renderChips(){
+  const box = $('#chips');
+  if(S.tab !== 'timeline'){ box.style.display = 'none'; return; }
+  box.style.display = 'flex';
+  const n = id => id === 'all' ? S.events.length : S.events.filter(e => e.catId === id).length;
+  const tally = v => v ? ` <b>${v}</b>` : '';     // an empty category shouldn't shout "0"
+  box.innerHTML = `<button class="chip" data-cat="all" aria-pressed="${S.cat==='all'}">All${tally(n('all'))}</button>` +
+    S.cats.map(c => `<button class="chip" data-cat="${esc(c.id)}" aria-pressed="${S.cat===c.id}" style="color:${S.cat===c.id?col(c.color):''}">
+      <span class="dot" style="background:${col(c.color)}"></span>${esc(c.name)}${tally(n(c.id))}</button>`).join('');
+}
+
+const SUBTITLE = { timeline:'on this device only', diary:'your pages', manifest:'what you are working toward',
+                   habit:'kept, not scored', library:'your library' };
+
+let _viewKey = '';
+
+function render(){
+  bumpStats();               // stats are memoised per render pass only
+  const v = $('#view');
+  const tab = S.tab;
+  const key = `${tab}|${(S.lens && S.lens[tab]) || ''}|${S.query.trim() ? 'search' : ''}`;
+  const same = key === _viewKey;
+  const keep = same ? (v.scrollTop || 0) : 0;
+  const onTimeline = tab === 'timeline';
+  const journal = isJournal(tab);
+  const searching = onTimeline && S.query.trim().length > 0;
+  const hasLenses = !!LENSES[tab];
+
+  // The lens bar is rebuilt per tab, because each section has its own set.
+  if(hasLenses && !searching){
+    const cur = S.lens[tab];
+    $('#lens').innerHTML = LENSES[tab].map(([id,label]) =>
+      `<button role="tab" data-lens="${esc(id)}" aria-selected="${id===cur}">${esc(label)}</button>`).join('');
+    $('#lens').style.display = 'flex';
+  } else {
+    $('#lens').style.display = 'none';
+  }
+
+  $('#searchBtn').style.display = onTimeline ? 'grid' : 'none';
+  $('#exportBtn').style.display = (onTimeline || journal || tab === 'habit') ? 'grid' : 'none';
+  $('#searchRow').classList.toggle('on', onTimeline && S.searchOpen);
+  $('#searchBtn').setAttribute('aria-pressed', String(S.searchOpen));
+  $('#fabAdd').hidden = !(onTimeline || journal || tab === 'habit');
+  $('#brandSub').textContent = SUBTITLE[tab] || '';
+  document.querySelectorAll('.nav button[data-tab]').forEach(b => {
+    if(b.dataset.tab === tab) b.setAttribute('aria-current','page');
+    else b.removeAttribute('aria-current');
+  });
+  renderChips();
+
+  const lens = S.lens[tab];
+  v.classList.remove('anim');
+  v.innerHTML = WIP[tab] ? renderWIP(tab)
+    : tab === 'library' ? renderLibrary()
+    : tab === 'habit' ? renderHabits()
+    : journal ? renderJournal(tab)
+    : searching ? renderSearch()
+    : lens === 'monthly' ? renderMonthly()
+    : lens === 'tree' ? renderTree()
+    : lens === 'map' ? renderMap()
+    : renderCalendar();
+  // Restore the reading position when only the data changed, and replay the
+  // entrance stagger only when the view itself changed. Re-animating the whole
+  // screen every time a box is ticked is what makes an app feel flimsy.
+  if(same){
+    v.scrollTop = keep;
+  } else {
+    v.scrollTop = 0;
+    void v.offsetWidth;        // force reflow so the stagger replays
+    v.classList.add('anim');
+  }
+  _viewKey = key;
+  S.flipDir = 1;
+}
+
+/* A tick updates the tapped control immediately, then refreshes only the
+   figures that depend on it. Nothing else in the tree is touched, so the
+   response stays instant however much history is on screen. */
+function patchTick(el, id, day){
+  if(!el || !el.closest) return false;
+  // Only the two screens whose derived figures we know how to recompute are
+  // patched. Everywhere else (the habit calendar's dials, for instance) does a
+  // full render, because a half-updated screen is worse than a slower one.
+  const lens = S.lens && S.lens.habit;
+  if(S.tab !== 'habit') return false;
+
+  if(lens === 'week'){
+    const cell = el.closest('.wcell');
+    if(!cell) return false;
+    const on = isDone(id, day);
+    cell.classList.toggle('on', on);
+    cell.setAttribute('aria-pressed', String(on));
+    refreshWeek();
+    return true;
+  }
+
+  if(lens === 'today'){
+    const row = el.closest('.hrow');
+    if(!row) return false;
+    const on = isDone(id, day);
+    row.classList.toggle('done', on);
+    const tick = row.querySelector('.tick');
+    if(tick) tick.setAttribute('aria-pressed', String(on));
+    const sub = row.querySelector('.hs');
+    const hb = S.habits.find(x => x.id === id);
+    if(sub && hb) sub.innerHTML = habitSubline(hb);   // streak text must follow
+    refreshRing();
+    return true;
+  }
+  return false;
+}
+
+/* The ring, its caption and the note under it. */
+function refreshRing(){
+  const view = $('#view');
+  if(!view.querySelector) return;
+  const wrap = view.querySelector('.ringwrap');
+  if(!wrap) return;
+  const day = todayISO();
+  const due = habitsOn(new Date());
+  const done = due.filter(h => isDone(h.id, day)).length;
+  (wrap.querySelectorAll('circle[data-hid]') || []).forEach(c => {
+    const lit = isDone(c.getAttribute('data-hid'), day);
+    c.setAttribute('stroke', lit ? col(c.getAttribute('data-col')) : 'var(--surface-2)');
+    c.setAttribute('opacity', lit ? '1' : '.55');
+  });
+  const cap = wrap.querySelector('.ringcap');
+  if(cap && due.length)
+    cap.innerHTML = `<b>${done}<span>/${due.length}</span></b><em>${Math.round(done/due.length*100)}% of today</em>`;
+  const note = view.querySelector('.ringnote');
+  if(note) note.textContent = !due.length
+    ? 'Nothing scheduled today. Rest is part of it.'
+    : done === due.length ? 'All done for today.'
+    : `${due.length - done} still open. No rush.`;
+}
+
+/* Refresh the weekly screen's derived text from weekFigures — the same
+   function the renderer uses, so a patched screen and a rendered one always
+   agree by construction rather than by two implementations staying in step. */
+function refreshWeek(){
+  const view = $('#view');
+  if(!view.querySelector) return;
+  const box = view.querySelector('.wstats');
+  if(!box) return;
+  const f = weekFigures(weekDays(S.hWeek));
+  const names  = [...(view.querySelectorAll('.wgrid button.wname') || [])];
+  const badges = [...(view.querySelectorAll('.wgrid .wbadge') || [])];
+
+  f.rows.forEach((r, i) => {
+    const label = names[i] && names[i].querySelector('i');
+    if(label) label.textContent = `${r.hit} of ${r.due}`;
+    const badge = badges[i];
+    if(badge){
+      const has = !!badge.querySelector('.perfect');
+      if(r.perfect && !has) badge.innerHTML = '<span class="perfect" title="Every scheduled day kept">★</span>';
+      else if(!r.perfect && has) badge.innerHTML = '';
+    }
+  });
+
+  const vals = [`${f.met}<span>%</span>`, String(f.bestDay), String(f.total), `${f.best}<span>d</span>`];
+  (box.querySelectorAll('.ws b') || []).forEach((b, i) => { if(vals[i] !== undefined) b.innerHTML = vals[i]; });
+}
+
+/* The header only casts a shadow once something has scrolled beneath it. */
+(function(){
+  const v = $('#view'), app = $('#app');
+  if(!v || !app || !v.addEventListener) return;
+  let on = false;
+  v.addEventListener('scroll', () => {
+    const now = v.scrollTop > 2;
+    if(now !== on){ on = now; app.classList.toggle('scrolled', on); }
+  }, { passive:true });
+})();
+
+/* Pin the shell to the real screen height.
+
+   window.innerHeight is correct in iOS standalone where the CSS viewport units
+   are not, and unlike visualViewport.height it does not shrink when the
+   keyboard appears — so the nav stays welded to the bottom edge either way.
+   Re-measured on resize, rotation, and on returning from the background. */
+(function(){
+  const setH = () => {
+    const h = window.innerHeight;
+    if(Number.isFinite(h) && h > 200)
+      document.documentElement.style.setProperty('--app-h', Math.round(h) + 'px');
+  };
+  setH();
+  window.addEventListener('resize', setH);
+  window.addEventListener('orientationchange', () => setTimeout(setH, 300));
+  window.addEventListener('pageshow', setH);
+  document.addEventListener('visibilitychange', () => { if(!document.hidden) setH(); });
+  if(window.visualViewport && window.visualViewport.addEventListener)
+    window.visualViewport.addEventListener('resize', setH);
+})();
+
+/* Lift bottom sheets above the on-screen keyboard instead of letting iOS
+   shove the layout around underneath them. */
+(function(){
+  const vv = window.visualViewport;
+  if(!vv || !vv.addEventListener) return;
+  const sync = () => {
+    const raw = window.innerHeight - vv.height - vv.offsetTop;
+    // Numeric by construction, but clamped anyway: this value reaches a CSS
+    // custom property, and a NaN would silently mis-size every bottom sheet.
+    const kb = Number.isFinite(raw) ? Math.min(Math.max(0, Math.round(raw)), 900) : 0;
+    document.documentElement.style.setProperty('--kb', kb + 'px');
+  };
+  vv.addEventListener('resize', sync);
+  vv.addEventListener('scroll', sync);
+  sync();
+})();
+
+/* ============================================================
+   Sheets
+   ============================================================ */
+function openSheet(html){
+  $('#sheet').innerHTML = `<div class="grab"></div>` + html;
+  $('#sheet').classList.add('on'); $('#scrim').classList.add('on');
+  document.body.style.overflow = 'hidden';
+}
+function closeSheet(){
+  $('#sheet').classList.remove('on'); $('#scrim').classList.remove('on');
+  document.body.style.overflow = '';
+  // All three, or a closed editor's draft outlives its sheet and can be
+  // resurrected by a later click while a different editor is open.
+  S.draft = null; S.jDraft = null; S.hDraft = null;
+}
+
+function openEditor(ev){
+  S.draft = ev ? { ...ev } : {
+    id:null, date: S.selDay || todayISO(), title:'', description:'', about:'',
+    catId: S.cats[0].id, milestone:false
+  };
+  S.draft.newColor = SWATCHES[0];
+  drawEditor();
+}
+
+function drawEditor(){
+  const d = S.draft;
+  if(!d) return;
+  openSheet(`
+    <h2>${d.id ? 'Edit event' : 'Record an event'}</h2>
+    <p class="hint">${d.id ? 'Change anything and save.' : 'Small details are what make it worth re-reading later.'}</p>
+    <div class="field"><label for="f-date">When</label><input id="f-date" type="date" value="${esc(d.date)}"></div>
+    <div class="field"><label for="f-title">Title</label>
+      <input id="f-title" type="text" autocomplete="off" placeholder="Moved to Bengaluru" value="${esc(d.title)}" maxlength="90"></div>
+    <div class="field"><label for="f-about">About</label>
+      <input id="f-about" type="text" autocomplete="off" placeholder="Who or where — Amma, Koramangala…" value="${esc(d.about)}" maxlength="60"></div>
+    <div class="field"><label for="f-desc">What happened</label>
+      <textarea id="f-desc" autocomplete="off" rows="4" placeholder="Write it the way you would tell a friend.">${esc(d.description)}</textarea></div>
+    <div class="field"><label>Category</label>
+      <div class="cat-pick" id="catPick">
+        ${S.cats.map(c => `<button data-pick="${esc(c.id)}" aria-pressed="${d.catId===c.id}" style="--c:${col(c.color)}">
+          <span class="dot"></span>${esc(c.name)}</button>`).join('')}
+        <button class="new" data-newcat="1">＋ New</button>
+      </div>
+      <div class="newcat" id="newCat">
+        <input id="f-newcat" type="text" autocomplete="off" placeholder="Category name" maxlength="18">
+        <button class="btn btn-primary" style="flex:0 0 auto;padding:9px 16px" data-addcat="1">Add</button>
+      </div>
+      <div class="swatches" id="swatches" style="display:none">
+        ${SWATCHES.map(s => `<button data-sw="${s}" style="background:${s}" aria-pressed="${d.newColor===s}"></button>`).join('')}
+      </div>
+    </div>
+    <div class="toggle-row">
+      <div><div class="tt">Mark as a milestone</div><div class="ts">Milestones become stops on your map</div></div>
+      <button class="switch" id="msToggle" aria-pressed="${!!d.milestone}"><i></i></button>
+    </div>
+    <div class="btn-row">
+      ${d.id ? `<button class="btn btn-danger" data-del="${esc(d.id)}">Delete</button>` : `<button class="btn btn-ghost" data-close="1">Cancel</button>`}
+      <button class="btn btn-primary" data-save="1">${d.id ? 'Save changes' : 'Save event'}</button>
+    </div>`);
+  setTimeout(() => { if(!d.id) $('#f-title')?.focus(); }, 340);
+}
+
+function syncDraft(){
+  const d = S.draft; if(!d) return;
+  d.date = $('#f-date')?.value || d.date;
+  d.title = $('#f-title')?.value ?? d.title;
+  d.about = $('#f-about')?.value ?? d.about;
+  d.description = $('#f-desc')?.value ?? d.description;
+}
+
+function openDetail(id){
+  const e = S.events.find(x => x.id === id); if(!e) return;
+  const c = catOf(e.catId);
+  openSheet(`<div class="det" style="--c:${col(c.color)}">
+    <span class="det-cat"><span style="width:7px;height:7px;border-radius:50%;background:${col(c.color)};display:inline-block"></span>${esc(c.name)}</span>
+    ${e.milestone ? '<span class="det-cat" style="margin-left:6px">★ Milestone</span>' : ''}
+    <h2>${esc(e.title)}</h2>
+    <div class="det-date">${longDate(e.date)}${e.about ? ' · ' + esc(e.about) : ''}</div>
+    ${e.description ? `<div class="block"><h5>What happened</h5><p>${esc(e.description)}</p></div>` : ''}
+    <div class="btn-row">
+      <button class="btn btn-ghost" data-close="1">Close</button>
+      <button class="btn btn-primary" data-edit="${esc(e.id)}">Edit</button>
+    </div></div>`);
+}
+
+/* ============================================================
+   Actions
+   ============================================================ */
+function saveDraft(){
+  if(!S.draft) return;
+  syncDraft();
+  const d = S.draft;
+  const title = cleanText(d.title, CAP.title);
+  if(!title){ toast('Give it a title first'); $('#f-title')?.focus(); return; }
+  if(!validDate(d.date)){ toast('Pick a valid date'); return; }
+  if(!S.cats.some(c => c.id === d.catId)) d.catId = S.cats[0].id;
+  const about = cleanText(d.about, CAP.about);
+  const description = cleanText(d.description, CAP.desc);
+  const now = Date.now();
+  if(d.id){
+    const i = S.events.findIndex(e => e.id === d.id);
+    if(i < 0){ toast('That event no longer exists'); closeSheet(); render(); return; }
+    S.events[i] = { ...S.events[i], date:d.date, title, about, description,
+                    catId:d.catId, milestone:!!d.milestone, updated:now };
+    toast('Saved');
+  } else {
+    if(S.events.length >= MAX_EVENTS){ toast('This device is at its event limit'); return; }
+    S.events.push({ id:uid(), date:d.date, title, about, description,
+                    catId:d.catId, milestone:!!d.milestone, created:now, updated:now });
+    toast('Event recorded');
+    S.cursor = parse(d.date);
+  }
+  saveEvents(); closeSheet(); render(); haptic();
+}
+
+function deleteEvent(id){
+  if(!confirm('Delete this event? This cannot be undone.')) return;
+  S.events = S.events.filter(e => e.id !== id);
+  saveEvents(); closeSheet(); render(); toast('Deleted');
+}
+
+function download(name, text, type){
+  try{
+    const b = new Blob([text], { type });
+    const u = URL.createObjectURL(b);
+    const a = document.createElement('a');
+    a.href = u; a.download = name; a.rel = 'noopener'; document.body.appendChild(a); a.click();
+    setTimeout(() => { URL.revokeObjectURL(u); a.remove(); }, 800);
+    toast('Exported ' + name);
+  }catch(e){
+    // Silently copying a whole journal to the clipboard would let any other
+    // app read it, so this is never done without asking.
+    if(confirm('The download was blocked. Copy the backup to your clipboard instead?\n\nAnything on your clipboard can be read by other apps until you copy something else.')){
+      navigator.clipboard?.writeText(text)
+        .then(() => toast('Copied to clipboard'))
+        .catch(() => toast('Could not export on this device'));
+    } else {
+      toast('Export cancelled');
+    }
+  }
+}
+
+function importJSON(file){
+  if(file.size > MAX_IMPORT_BYTES){ toast('That file is too large to be a Chrono backup'); return; }
+  const r = new FileReader();
+  r.onerror = () => toast("Could not read that file");
+  r.onload = () => {
+    let data;
+    try { data = JSON.parse(r.result); }
+    catch(e){ toast("That file isn't a Chrono backup"); return; }
+
+    const rawEvents = Array.isArray(data) ? data : (data && Array.isArray(data.events) ? data.events : null);
+    const rawCats   = (data && data.categories) || [];
+    const hasJournal = data && (Array.isArray(data.diary) || Array.isArray(data.manifest));
+    const hasHabits = data && Array.isArray(data.habits);
+    // A section-only export carries no events array, so accept any known section.
+    if(!rawEvents && !hasJournal && !hasHabits){ toast("That file isn't a Chrono backup"); return; }
+
+    let added = 0, newCats = 0, rejected = 0;
+    if(rawEvents){
+      const clean = normaliseAll([...S.cats, ...(Array.isArray(rawCats) ? rawCats : [])], rawEvents);
+      rejected = Math.min(rawEvents.length, MAX_EVENTS) - clean.events.length;
+
+      const knownCats = new Set(S.cats.map(c => c.id));
+      clean.cats.forEach(c => {
+        if(knownCats.has(c.id) || S.cats.length >= MAX_CATS) return;
+        S.cats.push(c); newCats++;
+      });
+
+      const have = new Set(S.events.map(e => e.id));
+      clean.events.forEach(e => {
+        if(have.has(e.id)) return;                 // same id = already have it
+        if(S.events.length >= MAX_EVENTS) return;
+        have.add(e.id); S.events.push(e); added++;
+      });
+      saveCats(); saveEvents();
+    }
+
+    // Diary and manifestation entries ride in the same file, validated the same way.
+    const jAdded = {};
+    Object.keys(JOURNALS).forEach(k => {
+      if(!data || !Array.isArray(data[k])) return;
+      const incoming = normaliseEntries(data[k]);
+      rejected += Math.min(data[k].length, MAX_EVENTS) - incoming.length;
+      const seen = new Set(S.journals[k].map(e => e.id));
+      let n = 0;
+      incoming.forEach(e => {
+        if(seen.has(e.id) || S.journals[k].length >= MAX_EVENTS) return;
+        seen.add(e.id); S.journals[k].push(e); n++;
+      });
+      if(n){ saveJournal(k); jAdded[k] = n; }
+    });
+
+    // Habits travel with their log; both are validated before anything is kept.
+    let habAdded = 0, logAdded = 0;
+    if(data && Array.isArray(data.habits)){
+      const known = new Set(S.habits.map(x => x.id));
+      data.habits.slice(0, MAX_HABITS).forEach(raw => {
+        const hb = cleanHabit(raw);
+        if(!hb || known.has(hb.id) || S.habits.length >= MAX_HABITS) return;
+        known.add(hb.id); S.habits.push(hb); habAdded++;
+      });
+      const incomingLog = cleanLog(data.habitLog, new Set(S.habits.map(x => x.id)));
+      Object.keys(incomingLog).forEach(day => {
+        const merged = new Set([...(S.hlog[day] || []), ...incomingLog[day]]);
+        if(merged.size !== (S.hlog[day] || []).length) logAdded++;
+        S.hlog[day] = [...merged];
+      });
+      if(habAdded || logAdded) saveHabits();
+    }
+
+    render();
+    const bits = [];
+    if(added) bits.push(`${added} event${added===1?'':'s'}`);
+    Object.keys(jAdded).forEach(k => bits.push(`${jAdded[k]} ${JOURNALS[k].name.toLowerCase()}`));
+    if(habAdded) bits.push(`${habAdded} habit${habAdded===1?'':'s'}`);
+    if(logAdded) bits.push(`${logAdded} logged day${logAdded===1?'':'s'}`);
+    if(newCats) bits.push(`${newCats} categor${newCats===1?'y':'ies'}`);
+    let msg = bits.length ? 'Added ' + bits.join(' · ') : 'Nothing new to add';
+    if(rejected > 0) msg += ` · ${rejected} skipped as invalid`;
+    toast(msg);
+  };
+  r.readAsText(file);
+}
+
+/* ============================================================
+   Wiring
+   ============================================================ */
+document.addEventListener('click', ev => {
+  const t = ev.target.closest('[data-lens],[data-cat],[data-mv],[data-day],[data-year],[data-map],[data-ev],[data-tab],[data-save],[data-close],[data-del],[data-edit],[data-pick],[data-newcat],[data-addcat],[data-sw],[data-act],[data-delcat],[data-open-add],[data-add-on],[data-mon],[data-yr],[data-jday],[data-jmv],[data-jflip],[data-jopen],[data-jsave],[data-jdel],[data-xp],[data-xs],[data-htog],[data-hopen],[data-hadd],[data-hwk],[data-hmv],[data-hday],[data-hday-pick],[data-hcol],[data-hsave],[data-hdel],[data-theme-pick]');
+  if(!t) return;
+  const d = t.dataset;
+
+  if(d.lens){ S.lens[S.tab] = d.lens; render(); return; }
+
+  // Monthly ribbon
+  if(d.mon !== undefined){
+    const m = +d.mon, yy = S.cursor.getFullYear();
+    S.cursor = new Date(yy, m, 1, 12);
+    render(); haptic();
+    const block = document.getElementById(`m-${yy}-${m}`);
+    if(block) block.scrollIntoView({ behavior:'smooth', block:'start' });
+    return;
+  }
+  if(d.yr){
+    S.cursor = new Date(S.cursor.getFullYear() + (+d.yr), S.cursor.getMonth(), 1, 12); render(); return;
+  }
+
+  // Journals
+  if(d.jmv){
+    const [k, n] = d.jmv.split(':');
+    if(!isJournal(k)) return;
+    S.jCursor[k] = (+n === 0) ? new Date()
+      : new Date(S.jCursor[k].getFullYear(), S.jCursor[k].getMonth() + (+n), 1, 12);
+    render(); return;
+  }
+  if(d.jday){
+    const [k, day] = d.jday.split(':');
+    if(!isJournal(k) || !validDate(day)) return;
+    const hit = S.journals[k].find(e => e.date === day);
+    if(hit) openEntryEditor(k, hit);
+    else openEntryEditor(k, null, day);   // seeded before the sheet is drawn
+    return;
+  }
+  if(d.jflip){
+    const [k, n] = d.jflip.split(':');
+    if(!isJournal(k)) return;
+    const len = S.journals[k].length;
+    const next = Math.min(Math.max(0, S.jPage[k] + (+n)), Math.max(0, len - 1));
+    if(next === S.jPage[k]) return;
+    S.flipDir = +n; S.jPage[k] = next; render(); haptic(); return;
+  }
+  if(d.jopen){
+    const [k, id] = d.jopen.split(':');
+    if(!isJournal(k)) return;
+    const e = jEntry(k, id);
+    if(!e){ toast('That page no longer exists'); render(); return; }
+    openEntryEditor(k, e); return;
+  }
+  if(d.jsave){ saveEntry(); return; }
+  if(d.jdel){
+    const i = d.jdel.indexOf(':');
+    deleteEntry(d.jdel.slice(0, i), d.jdel.slice(i + 1)); return;
+  }
+
+  // Export
+  if(d.xs){ openExportSheet(d.xs); return; }
+  if(d.xp){
+    const [scope, fmt] = d.xp.split(':');
+    exportScope(scope, fmt); closeSheet(); return;
+  }
+  if(d.cat){ S.cat = d.cat; render(); return; }
+  if(d.mv !== undefined){
+    const n = +d.mv;
+    if(n === 0){ S.cursor = new Date(); S.selDay = todayISO(); }
+    else S.cursor = new Date(S.cursor.getFullYear(), S.cursor.getMonth() + n, 1, 12);
+    render(); return;
+  }
+  if(d.day){
+    S.selDay = S.selDay === d.day ? null : d.day;
+    const had = S.selDay;
+    render();
+    if(had){
+      const el = document.getElementById('d-' + had);
+      if(el){ el.classList.add('flash'); el.scrollIntoView({ behavior:'smooth', block:'center' }); }
+    }
+    return;
+  }
+  if(d.addOn){
+    openEditor({ id:null, date:d.addOn, title:'', description:'', about:'', catId:S.cats[0].id, milestone:false });
+    return;
+  }
+  if(d.year){ S.openYears[d.year] = S.openYears[d.year] === false; render(); return; }
+  if(d.map){ S.mapMode = d.map; render(); return; }
+  if(d.ev){ openDetail(d.ev); return; }
+  if(d.openAdd){ openEditor(null); return; }
+
+  if(d.tab){ S.tab = d.tab; render(); return; }
+
+  // The sheet remains in the DOM during its close transition, so a fast tap
+  // can land here after the draft is gone. Fail closed rather than throw.
+  if((d.pick || d.sw || d.addcat || d.save || d.newcat) && !S.draft){ closeSheet(); return; }
+  // Habits
+  if(d.htog){
+    const i = d.htog.lastIndexOf(':');
+    const id = d.htog.slice(0, i), day = d.htog.slice(i + 1);
+    if(!RX_ID.test(id) || !validDate(day)) return;
+    if(day > todayISO()){ toast('That day has not happened yet'); return; }
+    toggleHabit(id, day);
+    // Rebuilding the whole view for one tick is what makes a tap feel slow.
+    // Patch the tapped control in place; fall back to a render if it isn't
+    // one of the two shapes we know how to update.
+    if(!patchTick(t, id, day)) render();
+    return;
+  }
+  if(d.hopen){
+    const h = S.habits.find(x => x.id === d.hopen);
+    if(!h){ toast('That habit no longer exists'); render(); return; }
+    openHabitEditor(h); return;
+  }
+  if(d.hadd){ openHabitEditor(null); return; }
+  if(d.themePick){ applyTheme(d.themePick); render(); haptic(); return; }
+  if(d.hwk){
+    S.hWeek = (+d.hwk === 0) ? new Date()
+      : new Date(S.hWeek.getFullYear(), S.hWeek.getMonth(), S.hWeek.getDate() + (+d.hwk) * 7, 12);
+    render(); return;
+  }
+  if(d.hmv){
+    S.hCursor = (+d.hmv === 0) ? new Date()
+      : new Date(S.hCursor.getFullYear(), S.hCursor.getMonth() + (+d.hmv), 1, 12);
+    if(+d.hmv === 0) S.hSel = todayISO();
+    render(); return;
+  }
+  if(d.hday){
+    if(!validDate(d.hday)) return;
+    S.hSel = S.hSel === d.hday ? null : d.hday;
+    render(); return;
+  }
+  if(d.hdayPick){
+    if(!S.hDraft) return;
+    syncHabit();
+    const i = +d.hdayPick;
+    S.hDraft.days = S.hDraft.days.includes(i)
+      ? S.hDraft.days.filter(x => x !== i) : [...S.hDraft.days, i].sort();
+    drawHabitEditor(); return;
+  }
+  if(d.hcol){
+    if(!S.hDraft) return;
+    syncHabit(); S.hDraft.color = RX_COLOR.test(d.hcol) ? d.hcol : SWATCHES[0];
+    drawHabitEditor(); return;
+  }
+  if(d.hsave){ saveHabit(); return; }
+  if(d.hdel){ deleteHabit(d.hdel); return; }
+
+  if(d.pick){ syncDraft(); S.draft.catId = d.pick; drawEditor(); return; }
+  if(d.newcat){ $('#newCat').classList.add('on'); $('#swatches').style.display = 'flex'; $('#f-newcat').focus(); return; }
+  if(d.sw){ S.draft.newColor = d.sw; document.querySelectorAll('[data-sw]').forEach(b =>
+      b.setAttribute('aria-pressed', String(b.dataset.sw === d.sw))); return; }
+  if(d.addcat){
+    const name = cleanText($('#f-newcat').value, CAP.name);
+    if(!name){ toast('Name the category'); return; }
+    if(S.cats.length >= MAX_CATS){ toast('That is as many categories as Chrono holds'); return; }
+    if(S.cats.some(c => c.name.toLowerCase() === name.toLowerCase())){ toast('That one already exists'); return; }
+    const c = { id:'c_' + uid(), name, color: RX_COLOR.test(S.draft.newColor) ? S.draft.newColor : SWATCHES[4] };
+    S.cats.push(c); saveCats(); syncDraft(); S.draft.catId = c.id; drawEditor(); toast('Category added'); return;
+  }
+  if(d.save){ saveDraft(); return; }
+  if(d.close){ closeSheet(); return; }
+  if(d.del){ deleteEvent(d.del); return; }
+  if(d.edit){
+    const target = S.events.find(e => e.id === d.edit);
+    if(!target){ toast('That event no longer exists'); closeSheet(); render(); return; }
+    closeSheet(); setTimeout(() => openEditor(target), 260); return;
+  }
+  if(d.delcat){
+    const c = catOf(d.delcat), n = S.events.filter(e => e.catId === d.delcat).length;
+    if(n && !confirm(`${n} event(s) use "${c.name}". They will move to ${S.cats[0].name}. Continue?`)) return;
+    S.events.forEach(e => { if(e.catId === d.delcat) e.catId = S.cats[0].id; });
+    S.cats = S.cats.filter(x => x.id !== d.delcat);
+    if(S.cat === d.delcat) S.cat = 'all';
+    saveCats(); saveEvents(); render(); toast('Category removed'); return;
+  }
+  if(d.act){
+    if(d.act === 'import') $('#fileIn').click();
+    if(d.act === 'wipe'){
+      if(confirm('Delete every event, diary page, intention, habit and custom category? Export a backup first — this cannot be undone.')){
+        S.events = []; S.cats = DEFAULT_CATS.slice(); S.cat = 'all';
+        S.journals.diary = []; S.journals.manifest = [];
+        S.jPage.diary = 0; S.jPage.manifest = 0;
+        S.habits = []; S.hlog = {}; bumpStats();
+        S.query = ''; S.selDay = todayISO(); S.hSel = null; S.openYears = {};
+        // Remove the keys outright rather than leaving empty arrays behind.
+        [K_EV, K_CAT, K_HAB, JOURNALS.diary.key, JOURNALS.manifest.key].forEach(k => Store.del(k));
+        render(); toast('Everything deleted');
+      }
+    }
+    return;
+  }
+});
+
+document.addEventListener('change', e => {
+  if(e.target.id === 'fileIn' && e.target.files[0]){ importJSON(e.target.files[0]); e.target.value = ''; }
+});
+document.addEventListener('click', e => {
+  const s = e.target.closest('#msToggle');
+  if(!s || !S.draft) return;
+  syncDraft();
+  S.draft.milestone = !S.draft.milestone;
+  s.setAttribute('aria-pressed', String(S.draft.milestone));
+  haptic();
+});
+$('#fabAdd').addEventListener('click', () => {
+  if(S.tab === 'habit') openHabitEditor(null);
+  else if(isJournal(S.tab)) openEntryEditor(S.tab, null);
+  else openEditor(null);
+});
+$('#exportBtn').addEventListener('click', () =>
+  openExportSheet(S.tab === 'habit' ? 'habit' : isJournal(S.tab) ? S.tab : 'timeline'));
+
+
+/* search wiring — the field lives outside #view so typing never loses focus */
+$('#searchBtn').addEventListener('click', () => {
+  S.searchOpen = !S.searchOpen;
+  if(!S.searchOpen){ S.query = ''; $('#q').value = ''; }
+  render();
+  if(S.searchOpen) $('#q').focus();
+});
+$('#q').addEventListener('input', e => { S.query = e.target.value; render(); });
+$('#qClear').addEventListener('click', () => {
+  S.query = ''; $('#q').value = ''; render(); $('#q').focus();
+});
+
+$('#scrim').addEventListener('click', closeSheet);
+document.addEventListener('keydown', e => { if(e.key === 'Escape') closeSheet(); });
+
+/* swipe between lenses */
+let sx = 0, sy = 0;
+document.addEventListener('touchstart', e => { sx = e.touches[0].clientX; sy = e.touches[0].clientY; }, { passive:true });
+document.addEventListener('touchend', e => {
+  if(!LENSES[S.tab] || S.query.trim() || $('#sheet').classList.contains('on')) return;
+  const dx = e.changedTouches[0].clientX - sx, dy = e.changedTouches[0].clientY - sy;
+  if(Math.abs(dx) < 70 || Math.abs(dy) > 55) return;
+  const set = LENSES[S.tab]; if(!set) return;
+  const order = set.map(x => x[0]), i = order.indexOf(S.lens[S.tab]);
+  const j = dx < 0 ? Math.min(i + 1, order.length - 1) : Math.max(i - 1, 0);
+  if(i !== j){ S.lens[S.tab] = order[j]; render(); haptic(); }
+}, { passive:true });
+
+load();
+S.selDay = todayISO();
+render();
+
+if('serviceWorker' in navigator){
+  // Scope is pinned to Chrono's own folder so the worker never intercepts
+  // requests belonging to another project on this shared origin.
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('sw.js', { scope: './' })
+      .then(reg => { try { reg.update(); } catch(e){} })
+      .catch(()=>{});
+  });
+  // A cache-first worker will otherwise keep serving the old build until the
+  // app is closed and reopened, which looks exactly like a fix that failed.
+  let reloading = false;
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if(reloading) return;
+    const sheet = document.getElementById('sheet');
+    if(sheet && sheet.classList.contains('on')) return;   // never interrupt an edit
+    reloading = true;
+    location.reload();
+  });
+}
+</script>
+</body>
+</html>
